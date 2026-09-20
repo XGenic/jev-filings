@@ -1,0 +1,27 @@
+# Pass with --config radar.example.toml. Credentials belong in .env, never here.
+data_dir = "data"
+sec_requests_per_second = 4
+metadata_ttl_seconds = 3600
+min_paragraph_chars = 40
+embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+embedding_enabled = true
+cosine_floor = 0.60
+alignment_top_k = 3
+# Review when a competing joint assignment loses less than this score.
+# A matching-objective margin, not a probability or economic-relevance threshold.
+alignment_ambiguity_margin = 0.04
+cosmetic_threshold = 0.985
+jev_enabled = true
+jev_concurrency = 4
+top_n = 20
+
+# Heuristic contributions, NOT a calibrated probability.
+# radar report RUN_ID --config radar.example.toml reranks cached signals.
+[weights]
+embedding_drift = 0.25
+semantic_drift = 0.25
+substantive_information = 0.20
+economic_relevance = 0.20
+non_boilerplate = 0.10
+domain_boost = 0.05
+section_boost = 0.03

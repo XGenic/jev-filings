@@ -1,0 +1,186 @@
+"""Code owns the workflow; providers contribute signals, never control flow."""
+
+import json
+import logging
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
+from pathlib import Path
+from uuid import uuid4
+
+from radar.config import Settings
+from radar.db import Database
+from radar.jev.score import rank_pair
+from radar.match.align import align_paragraphs
+from radar.match.embeddings import EmbeddingProvider, SentenceTransformerEmbedder
+from radar.models import AnalysisRun, CompanyAnalysis, Form
+from radar.parse import parse_filing
+from radar.sec.cache import atomic_write
+from radar.sec.client import SecClient
+from radar.sec.filings import discover_pair, fetch_pair
+
+logger = logging.getLogger(__name__)
+
+
+def fetch_and_parse(client: SecClient, ticker: str, form: Form | None, settings: Settings):
+    comparison = fetch_pair(client, discover_pair(client, ticker, form))
+    db = Database(settings.data_dir / "radar.sqlite3")
+    parsed = []
+    for filing in (comparison.previous, comparison.current):
+        paragraphs = parse_filing(filing, settings.min_paragraph_chars)
+        if not paragraphs:
+            raise ValueError(
+                f"No narrative paragraphs extracted from {filing.accession}; raw HTML retained"
+            )
+        db.save_filing(filing, paragraphs)
+        diagnostic = {
+            "filing": filing.model_dump(mode="json"),
+            "paragraphs": [p.model_dump(mode="json") for p in paragraphs],
+        }
+        atomic_write(
+            settings.data_dir / "processed" / f"{filing.accession}.json",
+            json.dumps(diagnostic, ensure_ascii=False, indent=2).encode(),
+        )
+        parsed.append(paragraphs)
+    return comparison, parsed[0], parsed[1]
+
+
+def analyze_tickers(
+    tickers: list[str],
+    settings: Settings,
+    form: Form | None = None,
+    recompute: bool = False,
+    *,
+    embedder: EmbeddingProvider | None = None,
+    evaluator=None,
+) -> AnalysisRun:
+    from radar.jev.client import JevEvaluator
+    from radar.jev.questions import QUESTION_SCHEMA_VERSION
+
+    tickers = list(dict.fromkeys(ticker.strip().upper() for ticker in tickers))
+    if not tickers or any(not ticker for ticker in tickers):
+        raise ValueError("At least one non-empty ticker is required")
+    db = Database(settings.data_dir / "radar.sqlite3")
+    if settings.embedding_enabled and embedder is None:
+        embedder = SentenceTransformerEmbedder(settings, db)
+    if not settings.embedding_enabled:
+        embedder = None
+    if settings.jev_enabled and evaluator is None:
+        evaluator = JevEvaluator(db)
+    run = AnalysisRun(
+        run_id=datetime.now(UTC).strftime("%Y%m%dT%H%M%S") + "-" + uuid4().hex[:10],
+        generated_at=datetime.now(UTC),
+        tickers=tickers,
+        form=form,
+        question_schema_version=QUESTION_SCHEMA_VERSION,
+        embedding_model=embedder.name if embedder else "unavailable (lexical-only)",
+        settings=settings.public_dict(),
+    )
+    run.settings["jev_provider"] = (
+        getattr(evaluator, "provider_identity", "unrecorded injected provider")
+        if settings.jev_enabled
+        else "disabled"
+    )
+    run.settings["jev_model"] = getattr(evaluator, "model", None) if settings.jev_enabled else None
+    with SecClient(settings, offline=recompute) as client:
+        for ticker in tickers:
+            try:
+                comparison, old, new = fetch_and_parse(client, ticker, form, settings)
+                alignment = align_paragraphs(old, new, settings, embedder)
+                warnings = list(alignment.warnings)
+                if alignment.embedding_model != run.embedding_model:
+                    warnings.append(f"Actual alignment provider: {alignment.embedding_model}")
+
+                def evaluate(pair):
+                    if pair.skip_reason:
+                        return rank_pair(pair, None, settings.weights, form=comparison.current.form)
+                    if not settings.jev_enabled:
+                        return rank_pair(
+                            pair,
+                            None,
+                            settings.weights,
+                            semantic_error="Jev disabled; baseline signals only.",
+                            form=comparison.current.form,
+                        )
+                    try:
+                        evaluation = evaluator.evaluate(pair, comparison)
+                    except Exception as exc:
+                        return rank_pair(
+                            pair,
+                            None,
+                            settings.weights,
+                            semantic_error=f"Jev unavailable: {type(exc).__name__}: {exc}",
+                            form=comparison.current.form,
+                        )
+                    return rank_pair(
+                        pair,
+                        evaluation.signals,
+                        settings.weights,
+                        evaluation_key=evaluation.cache_key,
+                        form=comparison.current.form,
+                    )
+
+                with ThreadPoolExecutor(max_workers=settings.jev_concurrency) as executor:
+                    deltas = list(executor.map(evaluate, alignment.pairs))
+                errors = sorted({d.semantic_error for d in deltas if d.semantic_error})
+                warnings.extend(errors)
+                for error in errors:
+                    logger.warning("%s: %s", ticker, error)
+                counts = {
+                    "old_paragraphs": len(old),
+                    "new_paragraphs": len(new),
+                    "total_paragraphs": len(old) + len(new),
+                    "unchanged_skipped": sum(p.skip_reason is not None for p in alignment.pairs),
+                    "exact_skipped": sum(p.skip_reason == "exact" for p in alignment.pairs),
+                    "cosmetic_skipped": sum(p.skip_reason == "cosmetic" for p in alignment.pairs),
+                    "matched_changes": sum(
+                        p.relation == "matched" and p.skip_reason is None for p in alignment.pairs
+                    ),
+                    "additions": sum(p.relation == "added" for p in alignment.pairs),
+                    "deletions": sum(p.relation == "deleted" for p in alignment.pairs),
+                    "jev_evaluated_pairs": sum(d.signals is not None for d in deltas),
+                    "alignment_review_pairs": sum(
+                        p.alignment is not None and p.alignment.status == "review"
+                        for p in alignment.pairs
+                    ),
+                }
+                deltas.sort(key=lambda delta: -delta.score)
+                run.companies.append(
+                    CompanyAnalysis(
+                        comparison=comparison, counts=counts, deltas=deltas, warnings=warnings
+                    )
+                )
+            except Exception as exc:
+                logger.exception("Comparison failed for %s", ticker)
+                run.errors[ticker] = f"{type(exc).__name__}: {exc}"
+            # Checkpoint completed companies: a later interruption cannot erase earlier results.
+            db.save_run(run)
+    return run
+
+
+def rerank_run(run: AnalysisRun, settings: Settings) -> AnalysisRun:
+    result = run.model_copy(deep=True)
+    result.settings["weights"] = settings.weights.model_dump()
+    result.settings["top_n"] = settings.top_n
+    for company in result.companies:
+        company.deltas = [
+            rank_pair(
+                delta.pair,
+                delta.signals,
+                settings.weights,
+                delta.evaluation_key,
+                delta.semantic_error,
+                form=company.comparison.current.form,
+            )
+            for delta in company.deltas
+        ]
+        company.deltas.sort(key=lambda delta: -delta.score)
+    return result
+
+
+def write_report(run: AnalysisRun, settings: Settings, output: Path | None = None) -> Path:
+    from radar.report.render import render_report
+
+    output = output or settings.data_dir / "reports" / f"{run.run_id}.html"
+    path = render_report(run, output, settings.top_n)
+    Database(settings.data_dir / "radar.sqlite3").save_report(run.run_id, path)
+    return path

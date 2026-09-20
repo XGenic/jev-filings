@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- Synthetic parser regression material; not a SEC filing. -->
+<html><head><style>.concealed { display: none !important; }</style></head><body>
+<nav>Navigation text must never become a narrative disclosure paragraph.</nav>
+<div role="navigation">Navigation by ARIA role must also be excluded from disclosure text.</div>
+<script>Script payload must never become a narrative disclosure paragraph.</script>
+<div class="concealed">Stylesheet-hidden text must not leak into extracted disclosure content.</div>
+<div hidden>Attribute-hidden text must not leak into extracted disclosure content.</div>
+<div style="visibility: hidden">Visibility-hidden text must not leak into extracted disclosure content.</div>
+<div aria-hidden="true">ARIA-hidden text must not leak into extracted disclosure content.</div>
+<ix:header><ix:hidden><ix:nonNumeric>Hidden XBRL content must not leak into narrative disclosure text.</ix:nonNumeric></ix:hidden></ix:header>
+<h1>ITEM 1. BUSINESS</h1>
+<div>Direct layout-container narrative remains visible without a paragraph wrapper.
+  <div><p>Nested paragraph narrative must appear once, not again in its parent container.</p></div>
+  Trailing layout-container narrative remains visible after its nested child.
+</div>
+<p>Malformed opening paragraph remains separate from the following layout block.
+  <div>Malformed nested block remains a distinct narrative after HTML repair.</div>
+</p>
+<p>Visible <ix:nonNumeric name="Example:Risk">inline XBRL disclosure</ix:nonNumeric> remains in the paragraph, with <span>sup</span><span>ply</span> intact.</p>
+<div>Single line breaks preserve<br>the entire sentence rather than dropping its short opening fragment.<br><br>Double line breaks begin another independent narrative paragraph in the layout.</div>
+<div><p>Repeated disclosure in distinct source blocks must retain both source positions.</p></div>
+<div><p>Repeated disclosure in distinct source blocks must retain both source positions.</p></div>
+</body></html>

@@ -1,0 +1,46 @@
+{
+  "provenance": {
+    "ticker": "RELL",
+    "previous_url": "https://www.sec.gov/Archives/edgar/data/355948/000119312526007399/rell-20251129.htm",
+    "current_url": "https://www.sec.gov/Archives/edgar/data/355948/000119312526149207/rell-20260228.htm",
+    "note": "Actual cached SEC excerpts. Structural counterpart review by assistant, not human economic-relevance labels."
+  },
+  "old": [
+    {
+      "filing_accession": "0001193125-26-007399",
+      "paragraph_id": "0001193125-26-007399:71",
+      "section": "Part I / Item 1. FINANCIAL STATEMENTS / 7. INCOME TAXES",
+      "item": "Part I / Item 1",
+      "ordinal": 71,
+      "text": "We recorded an income tax provision of $0.3 million and an income tax benefit of $0.2 million for the first six months of fiscal 2026 and the first six months of fiscal 2025, respectively. The effective income tax rate during the first six months of fiscal 2026 was a tax provision of 16.2% as compared to a tax benefit of 60.4% during the first six months of fiscal 2025. The difference in rate during the first six months of fiscal 2026 as compared to the first six months of fiscal 2025 reflects changes in our geographical distribution of income (loss). The 16.2% effective income tax rate differs from the federal statutory rate of 21% as a result of our geographical distribution of income (loss) and the utilization of the U.S. research and development credit.",
+      "normalized_text": "We recorded an income tax provision of $0.3 million and an income tax benefit of $0.2 million for the first six months of fiscal 2026 and the first six months of fiscal 2025, respectively. The effective income tax rate during the first six months of fiscal 2026 was a tax provision of 16.2% as compared to a tax benefit of 60.4% during the first six months of fiscal 2025. The difference in rate during the first six months of fiscal 2026 as compared to the first six months of fiscal 2025 reflects changes in our geographical distribution of income (loss). The 16.2% effective income tax rate differs from the federal statutory rate of 21% as a result of our geographical distribution of income (loss) and the utilization of the U.S. research and development credit.",
+      "text_hash": "f060bb4283c1b5c6b582aa2e9fd8596f1d10c420467ddfef769e34b1fe367070"
+    }
+  ],
+  "new": [
+    {
+      "filing_accession": "0001193125-26-149207",
+      "paragraph_id": "0001193125-26-149207:72",
+      "section": "Part I / Item 1. FINANCIAL STATEMENTS / 7. INCOME TAXES",
+      "item": "Part I / Item 1",
+      "ordinal": 72,
+      "text": "We recorded an income tax provision of $0.3 million and an income tax benefit of $1.0 million for the third quarter of fiscal 2026 and the third quarter of fiscal 2025, respectively. The effective income tax rate during the third quarter of fiscal 2026 was a tax provision of 25.3% as compared to a tax benefit of 33.4% during the third quarter of fiscal 2025. The difference in rate during the third quarter of fiscal 2026 as compared to the third quarter of fiscal 2025 reflects changes in our geographical distribution of income (loss) and the nonrecurring healthcare asset sale loss in the third quarter of fiscal 2025. The 25.3% effective income tax rate differs from the federal statutory rate of 21% as a result of our geographical distribution of income (loss) and the impact of permanent items.",
+      "normalized_text": "We recorded an income tax provision of $0.3 million and an income tax benefit of $1.0 million for the third quarter of fiscal 2026 and the third quarter of fiscal 2025, respectively. The effective income tax rate during the third quarter of fiscal 2026 was a tax provision of 25.3% as compared to a tax benefit of 33.4% during the third quarter of fiscal 2025. The difference in rate during the third quarter of fiscal 2026 as compared to the third quarter of fiscal 2025 reflects changes in our geographical distribution of income (loss) and the nonrecurring healthcare asset sale loss in the third quarter of fiscal 2025. The 25.3% effective income tax rate differs from the federal statutory rate of 21% as a result of our geographical distribution of income (loss) and the impact of permanent items.",
+      "text_hash": "fa31c41b26514a564cef9c7251dc7709b270ca69c1ebf5cc9060083b87d94a60"
+    },
+    {
+      "filing_accession": "0001193125-26-149207",
+      "paragraph_id": "0001193125-26-149207:73",
+      "section": "Part I / Item 1. FINANCIAL STATEMENTS / 7. INCOME TAXES",
+      "item": "Part I / Item 1",
+      "ordinal": 73,
+      "text": "We recorded an income tax provision of $0.6 million and an income tax benefit of $1.3 million for the first nine months of fiscal 2026 and the first nine months of fiscal 2025, respectively. The effective income tax rate during the first nine months of fiscal 2026 was a tax provision of 19.5% as compared to a tax benefit of 36.5% during the first nine months of fiscal 2025. The difference in rate during the first nine months of fiscal 2026 as compared to the first nine months of fiscal 2025 reflects changes in our geographical distribution of income (loss) and the nonrecurring healthcare asset sale loss in the third quarter of fiscal 2025. The 19.5% effective income tax rate differs from the federal statutory rate of 21% as a result of our geographical distribution of income (loss) and the impact of permanent items.",
+      "normalized_text": "We recorded an income tax provision of $0.6 million and an income tax benefit of $1.3 million for the first nine months of fiscal 2026 and the first nine months of fiscal 2025, respectively. The effective income tax rate during the first nine months of fiscal 2026 was a tax provision of 19.5% as compared to a tax benefit of 36.5% during the first nine months of fiscal 2025. The difference in rate during the first nine months of fiscal 2026 as compared to the first nine months of fiscal 2025 reflects changes in our geographical distribution of income (loss) and the nonrecurring healthcare asset sale loss in the third quarter of fiscal 2025. The 19.5% effective income tax rate differs from the federal statutory rate of 21% as a result of our geographical distribution of income (loss) and the impact of permanent items.",
+      "text_hash": "17bebd33124ed48edd26a902f9aa23358d9cdc338713d0d626f5b3ac9ffdccfa"
+    }
+  ],
+  "expected": {
+    "matched_new_id": "0001193125-26-149207:73",
+    "added_new_id": "0001193125-26-149207:72"
+  }
+}
