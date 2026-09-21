@@ -213,3 +213,15 @@ def test_fiscal_year_reference_is_not_an_annual_reporting_period():
         "Revenue for the third quarter and for fiscal 2026 increased."
     )
     assert actual_annual_comparison.reporting_scope == "mixed"
+
+
+def test_loss_contingency_recognition_is_not_a_reporting_flow():
+    obligation = context(
+        "During the six months ended June 30, 2026, we recognized an estimated liability "
+        "of $0.3 million for a loss contingency in connection with this litigation."
+    )
+    results = context(
+        "During the three months ended June 30, 2026, net loss increased to $2 million."
+    )
+    assert obligation.reporting_scope == "unknown"
+    assert results.reporting_scope == "quarter"

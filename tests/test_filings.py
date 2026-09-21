@@ -248,6 +248,31 @@ def test_primary_document_paths_are_validated_before_download(make_client, filen
     assert requests == [TICKERS_URL, SUBMISSIONS_URL]
 
 
+def test_legacy_text_metadata_does_not_block_recent_html_pair(make_client):
+    current = synthetic_row("10-Q", "2024-08-01", 3)
+    previous = synthetic_row("10-Q", "2024-05-01", 2, "2024-03-31")
+    legacy = synthetic_row("10-K", "2004-03-01", 1, "2003-12-31", "legacy_10k.txt")
+    missing_document = synthetic_row("10-Q", "2003-08-01", 1, "2003-06-30", "")
+    client, requests, _ = make_client([current, legacy, previous, missing_document])
+    with client:
+        pair = discover_pair(client, "SYN-A")
+    assert (pair.current.accession, pair.previous.accession) == (
+        current["accessionNumber"],
+        previous["accessionNumber"],
+    )
+    assert requests == [TICKERS_URL, SUBMISSIONS_URL]
+
+
+def test_selected_text_filing_fails_without_substituting_older_html(make_client):
+    current = synthetic_row("10-Q", "2024-08-01", 3, primary="latest.txt")
+    previous = synthetic_row("10-Q", "2024-05-01", 2, "2024-03-31")
+    older = synthetic_row("10-Q", "2024-02-01", 1, "2023-12-31")
+    client, requests, _ = make_client([older, current, previous])
+    with client, pytest.raises(InvalidSecMetadataError):
+        discover_pair(client, "SYN-A")
+    assert requests == [TICKERS_URL, SUBMISSIONS_URL]
+
+
 def test_history_path_cannot_escape_issuer_or_submissions_directory(make_client):
     page = history_file(1, "2023-01-01", "2024-01-01")
     page["name"] = "../CIK0000000099-submissions-001.json"

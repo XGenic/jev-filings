@@ -184,3 +184,98 @@ def write_report(run: AnalysisRun, settings: Settings, output: Path | None = Non
     path = render_report(run, output, settings.top_n)
     Database(settings.data_dir / "radar.sqlite3").save_report(run.run_id, path)
     return path
+
+
+def prepare_research(
+    manifest: Path, output: Path, settings: Settings, *, offline: bool = True
+) -> Path:
+    """Prepare source-complete experimental packets without invoking a semantic provider."""
+    import hashlib
+    import re
+
+    from radar.models import ComparableFilingPair
+    from radar.research import (
+        RESEARCH_SCHEMA_VERSION,
+        SCREENING_INSTRUCTIONS,
+        SCREENING_RESPONSE_SCHEMA,
+        build_packet,
+    )
+
+    records = json.loads(manifest.read_text())
+    if not isinstance(records, list) or not records:
+        raise ValueError("Research manifest must be a nonempty list of comparisons")
+    selected = []
+    seen = set()
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError("Every research manifest entry must be an object")
+        identity = record.get("id")
+        cohort = record.get("cohort")
+        if (
+            not isinstance(identity, str)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", identity)
+            or identity in seen
+        ):
+            raise ValueError("Research comparison IDs must be unique, safe filenames")
+        if not isinstance(cohort, str) or not cohort.strip():
+            raise ValueError("Every research comparison needs a cohort")
+        comparison = ComparableFilingPair.model_validate(record.get("comparison"))
+        old, new = comparison.previous, comparison.current
+        if (
+            old.cik != new.cik
+            or old.ticker != new.ticker
+            or old.form != new.form
+            or old.accession == new.accession
+            or old.filed_date >= new.filed_date
+        ):
+            raise ValueError("Research pairs require ordered same-issuer, same-form filings")
+        seen.add(identity)
+        selected.append((identity, cohort, comparison))
+
+    db = Database(settings.data_dir / "radar.sqlite3")
+    embedder = SentenceTransformerEmbedder(settings, db) if settings.embedding_enabled else None
+    index = {
+        "schema_version": RESEARCH_SCHEMA_VERSION,
+        "instructions_sha256": hashlib.sha256(SCREENING_INSTRUCTIONS.encode()).hexdigest(),
+        "comparisons": [],
+    }
+    with SecClient(settings, offline=offline) as client:
+        for identity, cohort, comparison in selected:
+            comparison = fetch_pair(client, comparison)
+            old = parse_filing(comparison.previous, settings.min_paragraph_chars)
+            new = parse_filing(comparison.current, settings.min_paragraph_chars)
+            if not old or not new:
+                raise ValueError(f"No narrative paragraphs extracted for {identity}")
+            alignment = align_paragraphs(old, new, settings, embedder)
+            packet = build_packet(comparison, old, new, alignment)
+            packet_bytes = json.dumps(packet, ensure_ascii=False, indent=2).encode()
+            atomic_write(output / f"{identity}.packet.json", packet_bytes)
+            atomic_write(
+                output / f"{identity}.alignment.json",
+                alignment.model_dump_json(indent=2).encode(),
+            )
+            index["comparisons"].append(
+                {
+                    "id": identity,
+                    "cohort": cohort,
+                    "comparison": comparison.model_dump(mode="json"),
+                    "packet": f"{identity}.packet.json",
+                    "alignment": f"{identity}.alignment.json",
+                    "packet_sha256": hashlib.sha256(packet_bytes).hexdigest(),
+                    "raw_sha256": {
+                        side: hashlib.sha256(filing.local_path.read_bytes()).hexdigest()
+                        for side, filing in (
+                            ("previous", comparison.previous),
+                            ("current", comparison.current),
+                        )
+                    },
+                }
+            )
+    atomic_write(output / "screening-instructions.txt", SCREENING_INSTRUCTIONS.encode())
+    atomic_write(
+        output / "screening-response.schema.json",
+        json.dumps(SCREENING_RESPONSE_SCHEMA, ensure_ascii=False, indent=2).encode(),
+    )
+    index_path = output / "index.json"
+    atomic_write(index_path, json.dumps(index, ensure_ascii=False, indent=2).encode())
+    return index_path

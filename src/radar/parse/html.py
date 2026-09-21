@@ -3,6 +3,7 @@
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from itertools import takewhile
 
 from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 from soupsieve.util import SelectorSyntaxError
@@ -134,6 +135,7 @@ def clean_html(html: str | bytes) -> BeautifulSoup:
         )
         if metadata or hidden or chrome:
             tag.decompose()
+    _join_page_continuations(soup)
     for table in list(soup.find_all("table")):
         if (
             table.name is not None
@@ -156,6 +158,65 @@ def _heading_style(tag: Tag) -> bool:
     return bool(children) and all(
         isinstance(child, Tag) and _heading_style(child) for child in children
     )
+
+
+def _join_page_continuations(soup: BeautifulSoup) -> None:
+    """Reunite a split sentence only across an explicit footer/break/TOC header."""
+    for rule in soup.find_all("hr"):
+        if not re.search(
+            r"(?:^|;)\s*page-break-after\s*:\s*always\s*(?:;|$)",
+            str(rule.get("style", "")),
+            re.I,
+        ):
+            continue
+        footer = rule.find_previous_sibling()
+        header = rule.find_next_sibling()
+        if footer is None or header is None:
+            continue
+        if footer.name != "div" or not re.fullmatch(r"\d+", _text(footer)):
+            continue
+        if header.name != "div" or _text(header).casefold() != "table of contents":
+            continue
+        links = header.find_all("a", href=True)
+        if len(links) != 1 or not str(links[0]["href"]).startswith("#"):
+            continue
+        previous = footer.find_previous_sibling()
+        current = header.find_next_sibling()
+        if previous is None or current is None:
+            continue
+        if (
+            previous.name not in {"div", "p"}
+            or current.name != previous.name
+            or previous.get("style", "") != current.get("style", "")
+            or previous.find_parent("table") is not None
+            or previous.find(_BLOCK_TAGS) is not None
+            or current.find(_BLOCK_TAGS) is not None
+            or _heading_style(previous)
+            or _heading_style(current)
+        ):
+            continue
+        # Do not skip meaningful sibling text, even in malformed HTML.
+        run = (previous, footer, rule, header, current)
+        if any(
+            isinstance(node, NavigableString) and node.strip()
+            for left, right in zip(run, run[1:])
+            for node in takewhile(lambda sibling: sibling is not right, left.next_siblings)
+        ):
+            continue
+        before, after = _text(previous), _text(current)
+        if (
+            not before
+            or not after
+            or not after[0].islower()
+            or re.search(r"""[.!?;:]["'’”)\]]*$""", before)
+        ):
+            continue
+        # Move original inline nodes in the working tree: Unicode, links and XBRL
+        # content survive unchanged; raw cached bytes are never rewritten.
+        previous.append(" ")
+        for child in list(current.contents):
+            previous.append(child.extract())
+        current.decompose()
 
 
 def text_blocks(soup: BeautifulSoup) -> Iterator[TextBlock]:

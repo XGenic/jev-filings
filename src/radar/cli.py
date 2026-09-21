@@ -75,7 +75,8 @@ def analyze(
         typer.echo(
             f"{filing.ticker}: {company.comparison.previous.accession} → {filing.accession}; "
             f"{company.counts['matched_changes']} matched changes, "
-            f"{company.counts['additions']} additions, {company.counts['deletions']} deletions"
+            f"{company.counts['additions']} unmatched current, "
+            f"{company.counts['deletions']} unmatched previous passages"
         )
     for ticker, error in run.errors.items():
         typer.echo(f"{ticker}: {error}", err=True)
@@ -130,3 +131,63 @@ def report(
         typer.echo(f"Report failed: {exc}", err=True)
         raise typer.Exit(1) from exc
     typer.echo(f"Report: {path.resolve()}")
+
+
+@app.command("research-prepare")
+def research_prepare(
+    manifest: Annotated[Path, typer.Argument(help="JSON list of explicit filing comparisons.")],
+    output: Annotated[Path, typer.Option(help="Directory for blinded packets and alignments.")],
+    config: Path | None = None,
+    online: Annotated[
+        bool, typer.Option(help="Permit SEC downloads; default is cached-only.")
+    ] = False,
+):
+    """Prepare a separate research experiment; no semantic provider calls or score changes."""
+    from radar.pipeline import prepare_research
+
+    settings = load_settings(config)
+    try:
+        path = prepare_research(manifest, output, settings, offline=not online)
+    except (OSError, ValueError, RuntimeError) as exc:
+        typer.echo(f"Research preparation failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"Research index: {path.resolve()}")
+
+
+@app.command("research-report")
+def research_report(
+    study: Annotated[Path, typer.Argument(help="Source-checked research study JSON.")],
+    output: Annotated[Path, typer.Option(help="Self-contained HTML output.")],
+):
+    """Render experimental assessments separately from production rankings, without providers."""
+    from radar.research import render_research_report
+    from radar.sec.cache import atomic_write
+
+    try:
+        html = render_research_report(json.loads(study.read_text()))
+        atomic_write(output, html.encode())
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"Research report failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"Research report: {output.resolve()}")
+
+
+@app.command("research-validate")
+def research_validate(
+    packet: Annotated[Path, typer.Argument(help="Blinded packet supplied to the external judge.")],
+    response: Annotated[Path, typer.Argument(help="Raw structured judge response JSON.")],
+    output: Annotated[Path, typer.Option(help="Validated assessments JSON output.")],
+):
+    """Reject incomplete assessments and unsupported quotations before review."""
+    from radar.research import validate_screening
+    from radar.sec.cache import atomic_write
+
+    try:
+        result = validate_screening(
+            json.loads(packet.read_text()), json.loads(response.read_text())
+        )
+        atomic_write(output, json.dumps(result, ensure_ascii=False, indent=2).encode())
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"Research validation failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"Validated {len(result['assessments'])} assessments: {output.resolve()}")

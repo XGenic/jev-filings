@@ -34,10 +34,11 @@ _ANNUAL = re.compile(
     r"|full\s+years?|years?\s+ended|annual)\b"
 )
 _AS_OF = re.compile(rf"\b(?:as\s+of|at)\s+(?:{_DATE.pattern}|(?:fiscal\s+)?year\s+end)")
+# A loss contingency identifies an uncertain obligation, not a period's income/loss.
 _REPORT_SUBJECT = re.compile(
-    r"\b(?:revenues?|sales|income|loss(?:es)?|margins?|earnings|expenses?|costs?"
-    r"|cash\s+flows?|net\s+cash|results|profits?|ebitda|tax(?:es)?"
-    r"|financial\s+performance|sources\s+and\s+uses\s+of\s+cash)\b"
+    r"\b(?:revenues?|sales|income|loss(?:es)?(?![\s-]+contingenc(?:y|ies)\b)"
+    r"|margins?|earnings|expenses?|costs?|cash\s+flows?|net\s+cash|results|profits?"
+    r"|ebitda|tax(?:es)?|financial\s+performance|sources\s+and\s+uses\s+of\s+cash)\b"
 )
 _BALANCE_SUBJECT = re.compile(
     r"\b(?:cash|cash\s+equivalents|balance(?:s)?|assets?|liabilit(?:y|ies)"

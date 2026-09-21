@@ -42,7 +42,19 @@ _ALIGNMENT_STATUSES = {
 
 
 def _label(value: str) -> str:
+    if value == "additions":
+        return "Unmatched current passages"
+    if value == "deletions":
+        return "Unmatched previous passages"
     return value.replace("_", " ").capitalize()
+
+
+def _relation_label(value: str) -> str:
+    return {
+        "matched": "Matched",
+        "added": "Unmatched current passage",
+        "deleted": "Unmatched previous passage",
+    }[value]
 
 
 def _sec_url(value: str) -> str | None:
@@ -97,6 +109,7 @@ def _delta_view(delta: RankedDelta, rank: int) -> dict:
     return {
         "delta": delta,
         "rank": rank,
+        "relation_label": _relation_label(pair.relation),
         "sections": sections,
         "sections_json": json.dumps(sections, ensure_ascii=False),
         "domains": domains,

@@ -123,7 +123,15 @@ def _filings_from_arrays(client: SecClient, company: Company, arrays: dict) -> l
             accession = normalize_accession(arrays["accessionNumber"][index])
         except ValueError as exc:
             raise InvalidSecMetadataError("SEC submissions contain an invalid accession") from exc
-        primary_document = _primary_document(arrays["primaryDocument"][index])
+        # Validate document paths only after selection: legacy rows can have text
+        # documents or no filename, without making the latest HTML pair unusable.
+        primary_document = arrays["primaryDocument"][index]
+        if (
+            not isinstance(primary_document, str)
+            or not re.fullmatch(r"(?:[A-Za-z0-9][A-Za-z0-9_.-]*)?", primary_document)
+            or ".." in primary_document
+        ):
+            raise InvalidSecMetadataError(f"Invalid primary filing filename: {primary_document!r}")
         period = periods[index] if periods is not None else None
         source_url = (
             f"{ARCHIVES_BASE}{int(company.cik)}/{accession.replace('-', '')}/{primary_document}"
@@ -218,6 +226,8 @@ def discover_pair(client: SecClient, ticker: str, form: Form | None = None) -> C
         raise NoFilingError(
             f"No non-amended {form or '10-K or 10-Q'} filing found for {company.ticker}"
         )
+    for filing in selected:
+        _primary_document(filing.primary_document)
     if len(selected) < 2:
         latest = selected[0]
         raise NoPriorFilingError(

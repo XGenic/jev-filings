@@ -253,3 +253,31 @@ def test_recorded_rell_tax_note_keeps_year_to_date_counterpart():
     assert added.new.paragraph_id == fixture["expected"]["added_new_id"]
     assert matched.alignment.old_context.reporting_scope == "year_to_date"
     assert matched.alignment.new_context.reporting_scope == "year_to_date"
+
+
+def test_recorded_litigation_stays_matched_when_accrual_period_rolls_forward():
+    import json
+    from pathlib import Path
+
+    fixture = json.loads(
+        (Path(__file__).parent / "fixtures" / "bfly_litigation_alignment.json").read_text()
+    )
+    old = [FilingParagraph.model_validate(p) for p in fixture["old"]]
+    new = [FilingParagraph.model_validate(p) for p in fixture["new"]]
+    addition = paragraph(
+        "We entered into an exclusive five-year license for semiconductor imaging technology.",
+        ordinal=new[0].ordinal + 1,
+        accession=new[0].filing_accession,
+        item=new[0].item,
+    )
+    addition.section = new[0].section
+    result = align_paragraphs(old, [*new, addition], Settings())
+    matched = [p for p in result.pairs if p.relation == "matched"]
+    assert len(matched) == 1
+    assert matched[0].old.paragraph_id == old[0].paragraph_id
+    assert matched[0].new.paragraph_id == new[0].paragraph_id
+    assert matched[0].skip_reason is None
+    assert [p.new.paragraph_id for p in result.pairs if p.relation == "added"] == [
+        addition.paragraph_id
+    ]
+    assert not any(p.relation == "deleted" for p in result.pairs)

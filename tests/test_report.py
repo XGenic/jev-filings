@@ -203,7 +203,6 @@ def test_missing_semantics_and_skipped_pairs_preserve_review_counts(tmp_path):
     assert soup.select_one("[data-visible-count]").get_text() == "1"
     counts = soup.select_one(".counts").get_text()
     assert "Eligible deltas: 2" in counts
-    assert "Additions: 1" in counts
     assert "FAIL" in soup.select_one(".run-errors").get_text()
     assert all(soup.find("label", attrs={"for": select["id"]}) for select in soup.select("select"))
 

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{ study.title }}</title>
+<style>
+:root{color-scheme:light;--ink:#14243a;--muted:#53627a;--line:#ccd6e3;--paper:#fff;--accent:#175780}
+*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:var(--ink);font:15px/1.55 system-ui,sans-serif}main{max-width:1440px;margin:auto;padding:24px}h1,h2,h3,h4,p{margin:0 0 12px}h1{font-size:1.85rem}h2{font-size:1.4rem}h3{font-size:1.1rem}h4{font-size:1rem}a{color:var(--accent)}a:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #c46700;outline-offset:3px}header,.cohort{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:22px}.case{border-top:2px solid var(--line);padding-top:22px;margin-top:22px}.comparison{display:grid;grid-template-columns:1fr 1fr;gap:20px}.filing{border:1px solid var(--line);border-radius:8px;padding:14px}dl{margin:0 0 14px}dt{font-weight:650}dd{margin:0 0 8px;overflow-wrap:anywhere}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.small,.muted{color:var(--muted);font-size:.88rem}.notice{background:#fff5d9;border-left:4px solid #c46700;padding:12px;margin:14px 0}.warning{border-color:#a33223}.badge{display:inline-block;border:1px solid var(--line);border-radius:5px;padding:2px 8px;margin:0 5px 8px 0;font-size:.88rem}.paragraph,.diff,blockquote{white-space:pre-wrap;overflow-wrap:anywhere}.paragraph{background:#f5f7fb;padding:14px;border-radius:6px}blockquote{border-left:3px solid var(--line);padding-left:14px;margin:12px 0}details{border:1px solid var(--line);border-radius:6px;padding:12px;margin:14px 0}summary{cursor:pointer;font-weight:650}details[open]>summary{margin-bottom:14px}.absent{font-style:italic;color:var(--muted)}.diff del{background:#ffe0df;text-decoration:line-through}.diff ins{background:#daf0df;text-decoration:underline}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.85rem}.controls{margin:16px 0}select{font:inherit;max-width:100%;padding:5px}footer{color:var(--muted);padding-bottom:24px}[hidden]{display:none!important}@media(max-width:760px){main{padding:12px}header,.cohort{padding:15px}.comparison{grid-template-columns:1fr}}@media print{body{background:white}main{max-width:none;padding:0}.controls{display:none}.case{break-inside:avoid}a{color:inherit}}
+.small{overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+{% macro citations(items) %}
+<ul class="citations">{% for citation in items %}
+<li>{% set url = citation.url | citation_url %}{% if url %}<a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ citation.title }}</a>{% else %}{{ citation.title }} <span class="small">(link unavailable: invalid HTTPS URL)</span>{% endif %} · Published {{ citation.get('published_at') or citation.get('published_date') or 'date not recorded' }}</li>
+{% else %}<li class="muted">No external citations recorded.</li>{% endfor %}</ul>
+{% endmacro %}
+{% macro paragraph_view(paragraph) %}
+<p class="small">Item {{ paragraph.item or 'Unclassified' }} · {{ paragraph.section or 'Unclassified' }} · Paragraph {{ paragraph.ordinal }} · {{ paragraph.paragraph_id }}</p>
+<div class="paragraph">{{ paragraph.text }}</div>
+{% endmacro %}
+<main>
+<header>
+<h1>{{ study.title }}</h1>
+<p>Source-first contextual screening experiment · Not a production ranking</p>
+<dl class="meta"><div><dt>Generated</dt><dd>{{ study.generated_at }}</dd></div><div><dt>Schema</dt><dd>{{ study.schema_version }}</dd></div><div><dt>Selected review cases</dt><dd>{{ study.cases | length }}</dd></div></dl>
+<div class="notice"><strong>Research relevance is not public novelty.</strong> The blinded screen sees filing evidence only, not announcement searches, production scores, baseline labels or later outcomes. A conditional research lead is neither an investment recommendation nor proof of a future deal or partner. Model judgments are not investment probabilities. Exact quotations validate provenance, not the truth or entailment of the model's interpretation.</div>
+<p class="small">Cohorts are reported separately. Counts are paragraph-level, not distinct business leads: related passages may discuss the same development. Selected and hindsight-selected examples do not estimate population precision, recall or success rates. Default case ordering within each cohort is follow-up / context / noise, then sound / uncertain / broken, then stable case ID. Uncertain or broken comparisons are retained but are not clean usable leads. Numbers and units below are unaltered source excerpts; compare reporting periods and scopes before interpreting a change.</p>
+<details class="protocol"><summary>Protocol and experiment metadata</summary><pre>{{ study.protocol | tojson(indent=2) }}</pre></details>
+<div class="controls"><label for="company-filter">Company: </label><select id="company-filter"><option value="">All companies</option>{% for ticker in tickers %}<option value="{{ ticker }}">{{ ticker }}</option>{% endfor %}</select></div>
+<noscript><p class="notice">All cases remain readable without JavaScript. Company filtering requires JavaScript.</p></noscript>
+</header>
+{% for group in groups %}
+<section class="cohort" aria-labelledby="cohort-{{ loop.index }}">
+<h2 id="cohort-{{ loop.index }}">{{ group.cohort.get('label', group.cohort.id) }}</h2>
+{% if group.cohort.get('description') %}<p>{{ group.cohort.description }}</p>{% endif %}
+{% if group.cohort.get('summary') %}<dl class="meta">{% for key, value in group.cohort.summary.items() %}<div><dt>{{ key | label }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>{% endif %}
+<p class="small" role="status" aria-live="polite"><span data-visible-count>{{ group.rows | length }}</span> visible / {{ group.rows | length }} selected cases in this cohort. Counts describe this review subset only.</p>
+{% for row in group.rows %}
+{% set case = row.case %}{% set pair = row.pair %}{% set assessment = row.assessment %}
+<article class="case" id="case-{{ row.number }}" data-ticker="{{ case.ticker }}">
+<h3>Case {{ row.number }} · {{ case.ticker }} · {{ pair.relation | relation_label }}</h3>
+{% if case.get('filing_published_at') %}<p class="small">Current filing accepted by SEC: {{ case.filing_published_at }}. Announcement checks use this cutoff when same-day timestamps are available.</p>{% endif %}
+<div class="comparison">
+{% for side, title, paragraph in [('previous', 'Previous filing', pair.old), ('current', 'Current filing', pair.new)] %}
+{% set filing = case.comparison[side] %}
+<section class="filing"><h4>{{ title }} · {{ filing.form }}</h4>
+<dl class="meta"><div><dt>Filed</dt><dd>{{ filing.filed_date }}</dd></div><div><dt>Period of report</dt><dd>{{ filing.period_of_report or 'Unavailable' }}</dd></div><div><dt>Accession</dt><dd>{{ filing.accession }}</dd></div></dl>
+{% set url = filing.source_url | sec_url %}
+{% if url %}<p><a href="{{ url }}" target="_blank" rel="noopener noreferrer">Open {{ title | lower }} on SEC.gov</a></p>{% else %}<p class="notice warning">Filing source link unavailable: not a valid HTTPS SEC URL.</p>{% endif %}
+{% if paragraph %}{{ paragraph_view(paragraph) }}{% else %}<p class="absent">No proposed counterpart on this side. This does not prove the disclosure is absent from the full filing.</p>{% endif %}
+</section>
+{% endfor %}
+</div>
+{% if pair.warnings or (pair.alignment and pair.alignment.review_reasons) %}
+<div class="notice warning"><strong>Alignment warnings</strong><ul>{% for warning in pair.warnings %}<li>{{ warning }}</li>{% endfor %}{% if pair.alignment %}{% for reason in pair.alignment.review_reasons %}<li>{{ reason | label }}</li>{% endfor %}{% endif %}</ul></div>
+{% endif %}
+{% if assessment.comparison != 'sound' %}<p class="notice warning"><strong>Comparison {{ assessment.comparison }} — not a clean usable lead.</strong> Inspect the assessment and full source context before treating the pairing as a disclosure change.</p>{% endif %}
+<details class="source-context"><summary>Surrounding source context and cited counterparts</summary>
+<p class="small">The screen received the full ordered paragraph corpus for both filings. This case shows selected review context, including all quoted paragraphs; an unmatched endpoint alone is not evidence of absence.</p>
+<div class="comparison">{% for side, title in [('previous', 'Previous source context'), ('current', 'Current source context')] %}<section><h4>{{ title }}</h4>{% for paragraph in case.source_context[side] %}{{ paragraph_view(paragraph) }}{% else %}<p class="absent">No review context on this side.</p>{% endfor %}</section>{% endfor %}</div>
+</details>
+<details class="lexical"><summary>Word-level change · deleted / inserted text</summary><p class="small">Lexical diff only; not a semantic explanation. Deletions are struck through and insertions underlined.</p><div class="diff">{{ row.diff }}</div></details>
+<details class="assessment"><summary>Screening assessment · proposed signal, alternatives and unknowns</summary>
+<p><span class="badge">{{ assessment.category | label }}</span><span class="badge">{{ assessment.priority | label }}</span><span class="badge">Comparison: {{ assessment.comparison }}</span><span class="badge">{{ 'Conditional usable research lead' if assessment.usable_lead else 'Not a clean usable lead' }}</span></p>
+<dl><dt>Observed source change / proposed signal</dt><dd>{{ assessment.observation }}</dd><dt>Conditional forward mechanism / relevance</dt><dd>{{ assessment.why_it_matters }}</dd><dt>Routine alternative explanation</dt><dd>{{ assessment.alternative_explanation }}</dd><dt>Uncertainty and missing evidence</dt><dd>{{ assessment.uncertainty }}</dd></dl>
+<h4>Source-checked evidence</h4>
+{% for evidence in assessment.evidence %}<p class="small">{{ evidence.side | label }} filing · {{ evidence.paragraph_id }}</p><blockquote>{{ evidence.quote }}</blockquote>{% endfor %}
+</details>
+{% if row.independent %}<details class="independent"><summary>Independent source-only review · original screen hidden</summary>
+<p class="small">A separate fresh-context assistant review, not human ground truth. It received neither the first assessment nor baseline scores, external announcement checks or later outcomes. Disagreements are retained.</p>
+<p><span class="badge">{{ row.independent.category | label }}</span><span class="badge">{{ row.independent.priority | label }}</span><span class="badge">Comparison: {{ row.independent.comparison }}</span></p>
+<dl><dt>Observation</dt><dd>{{ row.independent.observation }}</dd><dt>Relevance</dt><dd>{{ row.independent.why_it_matters }}</dd><dt>Alternative explanation</dt><dd>{{ row.independent.alternative_explanation }}</dd><dt>Unknowns</dt><dd>{{ row.independent.uncertainty }}</dd></dl>
+{% for evidence in row.independent.evidence %}<p class="small">{{ evidence.side | label }} filing · {{ evidence.paragraph_id }}</p><blockquote>{{ evidence.quote }}</blockquote>{% endfor %}
+</details>{% endif %}
+<section class="novelty"><h4>Separate announcement check · {{ case.novelty.status | label }}</h4>
+<p>{{ case.novelty.finding }}</p>{{ citations(case.novelty.citations) }}
+<p class="small">“Not checked” means unknown, not no announcement. Search-inconclusive or no announcement found means only that none was located within the recorded search coverage and cutoff; it is not proof of public novelty. A known development can still contain a new detail worth conditional follow-up. External evidence here was not provided to the screen.</p>
+</section>
+{% if case.get('baseline') is not none %}<details class="baseline"><summary>Frozen baseline comparison · excluded from screening</summary><dl>{% for key, value in case.baseline.items() %}<dt>{{ key | label }}</dt><dd>{{ value if value is not none else 'Unavailable' }}</dd>{% endfor %}</dl></details>{% endif %}
+{% if case.historical_outcome %}<details class="historical-outcome"><summary>Hindsight outcome · excluded from screening</summary>
+<p class="notice">Post-cutoff historical evidence is a separate audit, not evidence the screen knew or predicted this outcome.</p><p>{{ case.historical_outcome.description }}</p><p class="small">Announced {{ case.historical_outcome.announced_date }}</p>{{ citations(case.historical_outcome.citations) }}
+</details>{% endif %}
+<p class="small">Audit candidate: {{ assessment.id }}</p>
+</article>
+{% endfor %}
+<p class="empty" data-no-results {% if group.rows %}hidden{% endif %}>No selected cases for this company in this cohort.</p>
+</section>
+{% endfor %}
+<footer>Read the original filings and announcement sources before drawing conclusions. Experimental assessments do not override production Jev questions or ranking weights. Parser and comparison-reliability corrections apply to the pipeline; the original benchmark remains frozen.</footer>
+</main>
+<script>
+'use strict';
+const companyFilter = document.querySelector('#company-filter');
+companyFilter.addEventListener('change', () => {
+  for (const cohort of document.querySelectorAll('.cohort')) {
+    let visible = 0;
+    for (const card of cohort.querySelectorAll('.case')) {
+      card.hidden = Boolean(companyFilter.value && card.dataset.ticker !== companyFilter.value);
+      visible += Number(!card.hidden);
+    }
+    cohort.querySelector('[data-visible-count]').textContent = String(visible);
+    cohort.querySelector('[data-no-results]').hidden = visible !== 0;
+  }
+});
+</script>
+</body>
+</html>

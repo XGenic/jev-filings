@@ -27,7 +27,7 @@
 <div><dt>Embedding model</dt><dd>{{ run.embedding_model }}</dd></div>
 <div><dt>Form</dt><dd>{{ run.form or 'Per-company selection' }}</dd></div>
 </dl>
-<div class="notice"><strong>Review aid, not investment advice.</strong> Scores are weighted heuristic ranking values, not probabilities or investment recommendations. Semantic probabilities are model judgments, not verified facts. Alignment can pair unrelated text or miss moved disclosures; review both original filings and all ambiguity warnings. Additions and deletions are not, by themselves, evidence of a business improvement or deterioration.</div>
+<div class="notice"><strong>Review aid, not investment advice.</strong> Scores are weighted heuristic ranking values, not probabilities or investment recommendations. Semantic probabilities are model judgments, not verified facts. Alignment can pair unrelated text or miss moved disclosures; review both original filings and all ambiguity warnings. Unmatched passages have no selected counterpart: this does not establish that information is new, removed, or absent elsewhere in either filing.</div>
 <p class="small">Up to {{ top_n }} non-skipped deltas per company are included, in persisted ranking order. Controls sort and filter only this included subset; source counts do not change. Exact and cosmetic pairs are excluded. Missing cosine or semantic signals are unavailable, not zero. Lexical-only alignment and missing semantic evaluations provide reduced evidence. Raw SDK responses remain in the local database; evaluation references below identify them.</p>
 {% if run.settings.get('embedding_enabled') == false %}<p class="notice">Embedding alignment was disabled. Alignment is lexical-only; cosine similarity is unavailable.</p>{% endif %}
 {% if run.settings.get('jev_enabled') == false %}<p class="notice">Semantic evaluation was disabled. Review available lexical changes without semantic judgments.</p>{% endif %}
@@ -66,7 +66,7 @@
 <div class="controls">
 <div class="control"><label for="{{ company.id }}-sort">Sort included deltas</label><select id="{{ company.id }}-sort" data-control="sort"><option value="rank">Rank (best first)</option><option value="cosine">Cosine (lowest first)</option><option value="economic">Economic relevance (highest first)</option></select></div>
 <div class="control"><label for="{{ company.id }}-section">Section</label><select id="{{ company.id }}-section" data-control="section"><option value="">All sections</option>{% for section in company.sections %}<option value="{{ section }}">{{ section }}</option>{% endfor %}</select></div>
-<div class="control"><label for="{{ company.id }}-relation">Relation</label><select id="{{ company.id }}-relation" data-control="relation"><option value="">All relations</option><option value="matched">Matched</option><option value="added">Added</option><option value="deleted">Deleted</option></select></div>
+<div class="control"><label for="{{ company.id }}-relation">Relation</label><select id="{{ company.id }}-relation" data-control="relation"><option value="">All relations</option><option value="matched">Matched</option><option value="added">Unmatched current</option><option value="deleted">Unmatched previous</option></select></div>
 <div class="control"><label for="{{ company.id }}-domain">Domain</label><select id="{{ company.id }}-domain" data-control="domain"><option value="">All domains</option>{% for key, name in company.domains %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></div>
 <div class="control"><label for="{{ company.id }}-alignment">Alignment status</label><select id="{{ company.id }}-alignment" data-control="alignment"><option value="">All alignment statuses</option><option value="review">Needs review</option><option value="aligned">Aligned</option><option value="unmatched">Unmatched</option><option value="unavailable">Unavailable (historical)</option></select></div>
 </div>
@@ -76,7 +76,7 @@
 {% for row in company.deltas %}
 {% set delta = row.delta %}{% set pair = delta.pair %}
 <article class="delta" data-rank="{{ row.rank }}" data-cosine="{{ pair.cosine_similarity if pair.cosine_similarity is not none else '' }}" data-economic="{{ row.economic if row.economic is not none else '' }}" data-relation="{{ pair.relation }}" data-alignment="{{ row.alignment_status }}" data-sections="{{ row.sections_json }}" data-domains="{{ row.domains_json }}">
-<div class="delta-heading"><h3>#{{ row.rank }} · {{ pair.relation | capitalize }} · {{ row.sections | join(' → ') }}</h3><span class="score">Heuristic economic ranking score {{ '%.4f' | format(delta.score) }}</span></div>
+<div class="delta-heading"><h3>#{{ row.rank }} · {{ row.relation_label }} · {{ row.sections | join(' → ') }}</h3><span class="score">Heuristic economic ranking score {{ '%.4f' | format(delta.score) }}</span></div>
 <div class="metrics"><span class="metric">Cosine: {{ '%.4f' | format(pair.cosine_similarity) if pair.cosine_similarity is not none else 'Unavailable' }}</span><span class="metric">Lexical similarity: {{ '%.4f' | format(pair.lexical_similarity) if pair.lexical_similarity is not none else 'Unavailable' }}</span></div>
 {% if row.domains %}<div class="badges" aria-label="Semantic domains">{% for domain in row.domains %}<span class="badge">{{ domain.name }}: {{ domain.direction }}</span>{% endfor %}</div>{% endif %}
 <section class="alignment" aria-label="Alignment reliability">
@@ -123,7 +123,7 @@
 {% if delta.signals is none %}<p class="notice">Semantic signals unavailable. This ranking uses only available evidence; no missing semantic probability is treated as a judgment.</p>{% endif %}
 <div class="comparison">
 {% for title, paragraph in [('Previous text', pair.old), ('Current text', pair.new)] %}
-<section><h4>{{ title }}</h4>{% if paragraph %}<p class="small">Item {{ paragraph.item or 'Unclassified' }} · {{ paragraph.section or 'Unclassified' }} · Paragraph {{ paragraph.ordinal }} · {{ paragraph.paragraph_id }}</p><div class="paragraph">{{ paragraph.text }}</div>{% else %}<p class="paragraph absent">No paragraph in this filing ({{ pair.relation }}).</p>{% endif %}</section>
+<section><h4>{{ title }}</h4>{% if paragraph %}<p class="small">Item {{ paragraph.item or 'Unclassified' }} · {{ paragraph.section or 'Unclassified' }} · Paragraph {{ paragraph.ordinal }} · {{ paragraph.paragraph_id }}</p><div class="paragraph">{{ paragraph.text }}</div>{% else %}<p class="paragraph absent">No counterpart selected by the aligner. Check the complete filing before inferring absence.</p>{% endif %}</section>
 {% endfor %}
 </div>
 <details><summary>Word-level change · deleted / inserted text</summary><p class="small">Deletions are struck through; insertions are underlined. Word diff is lexical, not a semantic explanation.</p><div class="diff">{{ row.diff }}</div></details>

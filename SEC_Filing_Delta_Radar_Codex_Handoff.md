@@ -1,7 +1,8 @@
 # SEC Filing Delta Radar — Codex Handoff
 
-**Status:** first implementation pass complete; live RELL pipeline verified; broader-corpus and human-labeled evaluation outstanding (see §33).
+**Status:** local pipeline and five-issuer live coverage verified; provisional blinded assistant ranking benchmark complete; independent human validation and full historical ingestion fixture outstanding (see §33–35).
 **Primary goal:** build a local tool that detects *meaningful disclosure changes* between comparable SEC 10-K/10-Q filings, uses TypeSafe Jev as a high-throughput semantic judgment layer, and produces a compact HTML report for human review.
+**Research priority:** surface source-supported early evidence of expansion or developing commercial relationships, including indirect preparatory disclosures; distinguish hypotheses from confirmed deals (see §36).
 
 ---
 
@@ -1191,9 +1192,298 @@ and assume they share a global IP limit.
   Browser checks exercised alignment filters, evidence/alternative expansion, historical
   unavailable states, independent company controls, and desktop/mobile layouts without
   horizontal overflow.
-- A real three-to-five-company run and a complete versioned historical SEC HTML-pair fixture
-  remain outstanding; live verification covers RELL only. The excerpt regression above is
-  not a substitute for full historical ingestion coverage.
+- At this stage, a real three-to-five-company run and a complete versioned historical SEC
+  HTML-pair fixture remained outstanding. §34 records the subsequent four-company run;
+  the complete historical fixture remains open.
 - No human gold labels or ranking-quality results were invented. Milestone 6 still requires
   a genuinely human-labeled corpus and comparison of lexical, embedding, and Jev rankings.
   The heuristic score is not calibrated, and this implementation does not claim Jev improves it.
+
+---
+
+## 34. Four-company live acceptance — 2026-09-21 (UTC)
+
+User-selected cohort: **NPK, PKE, BFLY, CPSH**, chosen to test discovery of developments
+buried in lesser-known companies' disclosures. The latest/prior same-form strategy was
+retained; all selected pairs were 10-Qs.
+
+Final run: `20260921T033232-0ee464b545`.
+Report: `data/reports/20260921T033232-0ee464b545.html`.
+Assistant source-review audit: `data/processed/four-company-disclosure-review.json`.
+These artifacts are local and ignored by Git.
+
+| Ticker | Previous/current report periods | Matched | Added | Deleted | Valid Jev evaluations |
+|---|---|---:|---:|---:|---:|
+| NPK | 2026-04-05 / 2026-07-05 | 35 | 20 | 6 | 61 |
+| PKE | 2025-11-30 / 2026-05-31 | 65 | 3 | 33 | 101 |
+| BFLY | 2026-03-31 / 2026-06-30 | 50 | 32 | 10 | 92 |
+| CPSH | 2026-03-28 / 2026-06-27 | 54 | 13 | 15 | 82 |
+
+- 621 previous / 625 current paragraphs; 353 exact skips; 336 validated live
+  `jev-1.13.0` evaluations. Seven invalid probability-sum responses were rejected;
+  cached recomputation retried only those missing evaluations successfully.
+- Semantic replay with provider calls forbidden reused all 336 evaluations with zero
+  calls and left all 441 stored semantic-cache records unchanged.
+- Credential-free report rerender succeeded. Browser verification covered 80 cards,
+  independent company filters/sorting, empty results, and evidence expansion.
+  Desktop and 390-pixel mobile layouts showed no horizontal overflow.
+- Broader ingestion exposed legacy `.txt` and blank document names in unused historical
+  metadata. Safe filename validation remains in metadata ingestion; HTML eligibility
+  is enforced on the selected filings and before download. Selection never silently
+  substitutes an older HTML filing. Regression coverage now totals **151 passing tests**;
+  Ruff lint and formatting checks pass.
+- Candidate disclosures include NPK's Tech Ord construction commitment and subsequent
+  tariff refunds, PKE's Tulsa facility plan, BFLY's newly named Midjourney revenue
+  contribution, and CPSH's changed tariff/pass-through language.
+- Source review also found meaningful noise: quarter/YTD and fiscal-year comparability,
+  stale section labels, page-break fragmentation, existing disclosures classified as
+  additions, and monetary units omitted from individual paragraph context.
+  PKE's comparison skips the intervening annual filing by design.
+- This satisfies the real multi-company execution/report exercise, **not Milestone 6**.
+  No independent human labels, market-novelty analysis, Jev ranking uplift, or investment
+  performance were established. The complete historical SEC HTML-pair fixture and
+  human-labeled lexical/embedding/Jev ranking comparison remain outstanding.
+
+---
+
+## 35. Provisional assistant ranking benchmark — 2026-09-21
+
+The user approved assistant judging to reduce initial human-labeling work. This
+does not substitute independent human gold labels for Milestone 6.
+
+- Frozen evaluation: `data/processed/four-company-assistant-eval-v1/`, based on
+  `20260921T033232-0ee464b545`.
+- 251 pooled candidates from NPK/PKE/BFLY/CPSH, including all three rankers' top-20
+  matched-only and all-candidate selections, lower-ranked controls, and all unmatched
+  disclosures. Fresh-context judge inputs exclude ranks, scores, Jev responses,
+  matching warnings, and prior assistant findings; both complete source texts are supplied.
+- Clean follow-up means a sound, source-supported comparison revealing a concrete
+  development worth investigating, not merely a routine financial update.
+- Primary metrics use matched-only candidates from the same existing alignment:
+
+| Ranking | Precision@10 (40 cards) | Precision@20 (80 cards) |
+|---|---:|---:|
+| Lexical drift | 5/40 = 12.5% | 12/80 = 15.0% |
+| Embedding drift | 9/40 = 22.5% | 14/80 = 17.5% |
+| Jev-assisted heuristic | 13/40 = 32.5% | 18/80 = 22.5% |
+
+- This compares current rankers, not independent ingestion/alignment pipelines or a
+  clean causal Jev-only ablation: the heuristic includes section and other contributions.
+  The four-card top-10 gain is not universal; CPSH favors embedding drift 3/10 vs 2/10.
+- Full-report top-20 selections contain 21/80 clean follow-ups and 18/80 judged broken
+  comparisons. Positive cards represent 13 judge-assigned issuer/topic groups.
+  Added/deleted candidates have no cosine; the all-candidate baseline uses an explicitly
+  tied unmatched-first policy with bounds. Those policy-sensitive comparisons are secondary.
+- All evidence quotes matched normalized source substrings. A 20-case fresh-context
+  repeat agreed on the binary clean label 20/20 but had only one positive; a subsequent
+  balanced repeat retained eight positives and eight negatives. These are same-model
+  consistency checks, not independent accuracy estimates. Original labels remained fixed.
+- `protocol.json`, `results.json`, `judgments.csv`, and `human-spotcheck.json` preserve
+  the design, outcomes and audit cases. Primary metrics were independently recomputed
+  from saved artifacts. No production scoring or extraction behavior was changed.
+- The judge gave no uncertain labels; that does not establish certainty. Four selected
+  filing pairs, shared model biases, source-context repair of fragmented passages, and
+  subjective follow-up preferences limit conclusions. No recall, independent probability
+  calibration, market-novelty, investment-performance, or cost-benefit result is claimed.
+- Next validation: user spot-checks of positives, rejected candidates and boundaries;
+  then improvements to false-addition/relocation handling and repeated-topic presentation.
+  Retain these fixed labels for comparison without treating them as human truth.
+
+---
+
+## 36. Refined research target and spot-check format
+
+The user's primary objective is **early evidence of business development**, particularly
+expansion or the foundations of a deal/partnership that a filing may describe indirectly
+before an explicit announcement. Broad financial materiality is not the same target.
+
+Future evaluation should prioritize company-specific preparatory evidence: dedicated
+capacity/facilities, customer-funded development, qualification or pilot programs,
+changed commitments, exclusivity/licensing provisions, and conditional commercial
+arrangements. These are examples of evidence to inspect, not keyword rules or proof
+that a transaction exists. Already announced expansion remains useful context but is
+distinct from an early, not-yet-explicit commercial-development signal.
+
+Every inferred lead should separate:
+
+1. The exact new or changed source observations.
+2. The possible development those observations support.
+3. Routine alternatives and counterevidence.
+4. Missing information and what would confirm or disprove the hypothesis.
+
+Do not turn opaque wording into an asserted signed/imminent deal, invent a partner,
+or equate absence from the previous filing with absence from public announcements.
+Broader announcement/news checking would be needed for a claim of public novelty.
+
+Macro/tariff commentary, ordinary financial updates, and mechanical period changes
+normally rank below company-specific preparatory developments. A blanket tariff
+keyword exclusion is inappropriate: tariff-related text may still disclose a real
+capacity investment or commercial arrangement.
+
+The §35 benchmark remains frozen under its original, broader rubric. Its precision
+numbers do not validate this narrower objective. A future rerating must use a separately
+versioned rubric and preserve background/macro-only controls rather than relabeling the
+old benchmark in place. No production ranking change is implied by this clarification.
+
+**Human spot-checks must be delivered in self-contained HTML**, with readable old/new
+passages, filing dates, SEC source links, and expandable assistant assessments.
+Keep assessments collapsed initially to reduce priming. Preserve JSON for machine
+audit and reproducibility, not as the sole human-facing deliverable.
+
+The existing ten-case selection is available as
+`data/reports/four-company-assistant-spotcheck.html`. It preserves the frozen §35
+labels, marks them as historical rather than regraded, and provides company filtering,
+source links, word differences, and initially collapsed assessments. Desktop and
+390-pixel mobile presentation were browser-verified without horizontal overflow.
+
+## 37. Human calibration from the first HTML review
+
+Preserve the user's case-level preferences separately from the frozen §35 assistant
+labels. The audit record is `data/processed/four-company-human-calibration-v1.json`;
+the HTML spot-check presents these as a separate, initially collapsed review layer.
+This selected review is not a blinded human benchmark or a new precision estimate.
+
+- **Cases 1 and 3 — core preparatory evidence:** NPK's Tech Ord commitments and
+  PKE's Tulsa facility are the user's clearest "things are building up" examples.
+  Their public-announcement novelty remains unchecked.
+- **Case 10 — potential commercial-trajectory insight:** product mix can inform
+  future revenues even without a prospective deal. Prioritize explanatory evidence
+  about revenue drivers over ordinary historical revenue totals. The page-break
+  comparison defect remains: do not infer a mix reversal from a deleted fragment.
+- **Cases 5 and 7 — novelty-dependent interest:** the user sees possible usefulness
+  if not already known through a separate announcement. Preserve that condition,
+  rather than turning it into unconditional positive labels.
+- **Cases 2, 4, 6, 8, and 9 — background/low priority:** inferred from the user's
+  grouped "the rest" comment. This is a judgment about these examples, not a keyword
+  ban or a claim that every passage is literally about revenue or tariffs.
+
+Follow-up source checks resolve important limitations:
+
+- Case 5's partner relationship was already public: a November 2025 8-K names
+  Midjourney and its co-development/licensing agreement, and Butterfly's June 18,
+  2026 press release discusses the collaboration, before the July 30 current 10-Q.
+  Treat the filing as confirmation/commercial context, not an unannounced-partner find.
+- Case 7's prior 10-Q already disclosed the Rose lawsuit and $0.3 million accrual.
+  The current filing explicitly reports no change to the estimate in the quarter.
+  An unmatched/added paragraph is not evidence of a newly disclosed event.
+- Primary source URLs and the distinction between user opinion and subsequent
+  assistant findings are retained in the separate audit record and HTML.
+
+Future evaluation must distinguish **commercial research interest**, **comparison
+validity**, and **public-information novelty**. Restrict novelty checks to information
+available before the filing's publication; do not use later news to evaluate an
+earlier lead. Public availability is not proof of widespread awareness or pricing,
+and no announcement found is not proof of an unannounced development. Neither this
+calibration nor the added review annotations change production ranking.
+
+## 38. Contextual screening v2 and comparison-reliability fixes — 2026-09-21
+
+### Implemented behavior
+
+- `src/radar/match/context.py` no longer treats `loss contingency/contingencies`
+  as a reporting-period loss measure. This repairs the known BFLY lawsuit mismatch;
+  its earlier disclosure and unchanged accrual are not a new litigation event.
+- `src/radar/parse/html.py` conservatively joins unfinished narrative across the
+  observed numeric-footer/page-break/linked-TOC-header pattern before table removal.
+  It requires compatible narrative blocks and a lowercase continuation and refuses
+  headings, intervening meaningful content and table-contained blocks.
+  The actual BFLY product-revenue passage now retains the complete product-mix context.
+  Raw SEC HTML is unchanged; this is not a general promise to reconstruct every layout.
+- Report cards, relation filters, counts and CLI output call unmatched passages
+  **unmatched current/previous**, not newly disclosed or absent information.
+  Internal relation values remain `added`/`deleted`. Production Jev questions and
+  ranking weights are unchanged; parsing/alignment fixes apply to new/recomputed runs.
+  Do not rewrite the frozen §35 benchmark or §37 human feedback to reflect new parsing.
+- `src/radar/research.py` implements `contextual-screening-v2`: separate preparatory,
+  commercial-trajectory and background categories; priority; comparison validity;
+  observations, conditional implications, alternatives, unknowns and cited evidence.
+  Full ordered filing corpora support checking relocated/omitted counterparts.
+  Candidate completeness, side/paragraph identity and normalized quote provenance
+  are validated. A source-sound matched follow-up must cite both sides.
+  Quote validation does not establish semantic entailment or forecast correctness.
+
+### Reusable research workflow
+
+1. `radar research-prepare MANIFEST --output DIRECTORY` accepts a `comparisons` list
+   of unique `id`, `cohort`, and complete `comparison` records. Each comparison has
+   ordered same-issuer/same-form `previous` and `current` filings plus the strategy.
+   The command exports packets, alignments, instruction/schema files and source hashes.
+   SEC fetching defaults to the local cache; `--online` permits fetching. The embedding
+   model must also already be cached for a fully network-free preparation.
+2. Run the exported instructions/schema through a contextual judge separately.
+   Preparation does not invoke such a judge or mix in production scores/outcomes.
+   Persist the raw responses, including failed attempts.
+3. `radar research-validate PACKET RESPONSE --output VALIDATED_JSON` checks the complete
+   response for that packet. A chunked response needs its corresponding subset packet;
+   do not silently accept missing candidates from a larger packet.
+4. `radar research-report STUDY --output REPORT_HTML` renders the escaped, source-first
+   review. A study records cohorts and cases with comparison/pair, source context,
+   assessment, separate novelty checks, and optional independent assessment/baseline/
+   historical outcome. Context must include endpoints and every cited counterpart.
+   Prior-announcement claims require valid dated HTTPS sources. Timestamped evidence
+   requires aware release and filing instants; their order overrides calendar labels.
+   Date-only evidence must be strictly earlier than the filing date. A later historical
+   outcome is never supplied as screening evidence.
+
+Use a separate replay output directory; do not overwrite the frozen study inputs.
+The completed local examples are `data/processed/research-screen-v2/comparisons.json`
+and `study.json`. Re-render with:
+
+```bash
+uv run radar research-report data/processed/research-screen-v2/study.json \
+  --output data/reports/research-screen-v2.html
+```
+
+### Completed evaluation and limitations
+
+- Human deliverable: **`data/reports/research-screen-v2.html` — 20 source-checked cases**.
+  Twelve come from preselected ASTE/GRC/HURC pairs and eight from earlier BFLY/PKE pairs.
+  All five companies have four cases; case numbers stay stable when filtering.
+- ASTE/GRC/HURC were fixed before filing-content review. Historical pairs were
+  selected with hindsight, but both assistant passes received only earlier filing
+  evidence, not later outcomes, public-history checks, previous labels or baseline scores.
+  Pretraining knowledge cannot be ruled out. The requested model alias was `default`;
+  the completion helper did not disclose an exact resolved backend model name.
+- The PKE historical cutoff was corrected **before screening** from an assumed May 28
+  8-K to the verified July 20 Tulsa-sublease disclosure. The selected January/October
+  pair did not change. Preserve `protocol.json` and `protocol-amendment.json`;
+  July 20 is a verified later disclosure, not a claim of first mention in every channel.
+- Screened 467 eligible passages: 301 fresh and 166 historical. All 467 have validated
+  source evidence. One GRC candidate needed a fresh-context quote repair; original
+  rejected output is retained. No rubric tuning or outcome-driven sample replacement.
+- Fresh results: **22 commercial-trajectory follow-up paragraphs; zero preparatory
+  follow-ups**. Primary comparison flags: 198 sound, 11 uncertain, 92 broken.
+  Historical results: 18 follow-ups; 131 sound, 13 uncertain, 22 broken.
+  These flags are model judgments, not independently adjudicated alignment-error counts.
+  Repeated passages on a single business topic are not independent leads.
+- Four cases per issuer were chosen by the frozen rule: three priority-band,
+  comparison-validity and stable-ID selections, then the best remaining production
+  baseline case. A fresh-context second pass retained 14/20 conditional follow-ups
+  versus 16/20 initially; three category/priority/comparison disagreements remain.
+  Same-alias assistant consistency is not independent human accuracy or precision.
+- Earlier-publication checks materially reduce apparent novelty: Hurco's private-label
+  machine-frame production and Gorman-Rupp's data-center demand commentary were already
+  in earlier releases. SEC acceptance times establish ordering for same-day 8-K/10-Qs.
+  Warranty-policy evidence includes a currently readable Hurco post with January 5
+  creation metadata, not a verified archived January message. Search coverage is bounded.
+- The historical screen found generic product/staffing/capacity/funding context,
+  **not a demonstrated specific precursor to Midjourney or Tulsa**. Do not relabel
+  general R&D or financing as a successful prediction merely because a deal followed.
+- `baseline-rankings.json` preserves production scores and matched-only lexical/
+  embedding drift ranks, plus a matched-only production ranking. Missing counterpart
+  similarities are not imputed for baseline comparison. All 467 production Jev
+  evaluations eventually passed unchanged strict validation; failed attempts remain.
+- Verification: **167 pytest tests passed**, Ruff passed, real-source comparison
+  smoke passed, and the actual HTML was exercised on desktop and 390-pixel mobile.
+  A mobile audit-ID overflow was fixed. All filters and independent disclosure panels
+  worked; production unmatched-relation filters/counts were also exercised on real data.
+  As-of regressions cover known later instants hidden behind older date labels and
+  valid cross-timezone/UTC-midnight ordering.
+- All 31 original benchmark files and 22 frozen primary responses retained their hashes;
+  the five input packets and ten raw filings also matched their recorded hashes.
+  The screening prompt/schema were not changed after evaluation.
+
+**Decision:** keep this as a research experiment, not a production ranking replacement.
+It does not establish early-deal detection, population precision/recall, a causal Jev
+advantage, calibrated probabilities, or investment performance. The `data/` artifacts
+are local and Git-ignored; preserve them separately for reproducibility.
