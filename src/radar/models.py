@@ -1,6 +1,7 @@
 """Persistent, provider-independent pipeline contracts."""
 
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
 
@@ -43,6 +44,73 @@ class FilingParagraph(BaseModel):
     text: str
     normalized_text: str
     text_hash: str
+
+
+class SourceFact(BaseModel):
+    """An explicitly tagged numeric disclosure, not an inferred business consequence."""
+
+    fact_id: str
+    filing_accession: str
+    concept: str
+    label: str
+    value: Decimal
+    unit: str
+    entity: str
+    period_start: date | None = None
+    period_end: date
+    dimensions: dict[str, str] = Field(default_factory=dict)
+    quote: str
+    source_anchor: str | None = None
+    paragraph_ids: list[str] = Field(default_factory=list)
+    table_id: str | None = None
+    scale: int = 0
+    sign: str | None = None
+    format: str | None = None
+
+
+class SourceTable(BaseModel):
+    """Visible cells in source order; selected row indices refer to the original table."""
+
+    table_id: str
+    filing_accession: str
+    caption: str
+    rows: list[list[str]]
+    row_indices: list[int] = Field(default_factory=list)
+    cell_spans: list[list[tuple[int, int]]] = Field(default_factory=list)
+    header_cells: list[list[bool]] = Field(default_factory=list)
+    source_anchor: str | None = None
+    section: str | None = None
+    item: str | None = None
+
+
+class FilingEvidence(BaseModel):
+    filing_accession: str
+    raw_sha256: str
+    facts: list[SourceFact] = Field(default_factory=list)
+    tables: list[SourceTable] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class FactChange(BaseModel):
+    metric: str
+    previous: SourceFact
+    current: SourceFact
+    basis: Literal["sequential", "year_over_year", "point_in_time"]
+    absolute_change: Decimal
+    percent_change: Decimal | None = None
+
+
+class ComparisonEvidence(BaseModel):
+    schema_version: Literal["comparison-evidence-1"] = "comparison-evidence-1"
+    basis: Literal["sequential", "year_over_year", "point_in_time", "mixed", "unclear"]
+    basis_reason: str
+    changed_spans: dict[str, list[str]] = Field(default_factory=dict)
+    changes: list[FactChange] = Field(default_factory=list)
+    context_facts: dict[str, list[SourceFact]] = Field(default_factory=dict)
+    tables: dict[str, list[SourceTable]] = Field(default_factory=dict)
+    counterparts: dict[str, list[FilingParagraph]] = Field(default_factory=dict)
+    possible_channels: list[str] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
 
 
 class ParagraphContext(BaseModel):
@@ -101,13 +169,32 @@ class AlignmentResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class CategoricalAssessment(BaseModel):
+    choice: str
+    probabilities: dict[str, float]
+
+
+class BusinessAssessment(BaseModel):
+    business_subject: CategoricalAssessment
+    change_nature: CategoricalAssessment
+    business_direction: CategoricalAssessment
+    impact_magnitude: CategoricalAssessment
+    impact_duration: CategoricalAssessment
+    impact_timing: CategoricalAssessment
+    impact_evidence: CategoricalAssessment
+    comparison_validity: CategoricalAssessment
+    business_impact: CategoricalAssessment
+
+
 class JevSemanticSignals(BaseModel):
     question_schema_version: str
+    assessment: BusinessAssessment | None = None
     same_underlying_meaning: float | None = Field(default=None, ge=0, le=1)
     introduces_new_substantive_information: float | None = Field(default=None, ge=0, le=1)
     plausibly_economically_consequential: float | None = Field(default=None, ge=0, le=1)
     mostly_boilerplate_or_rephrasing: float | None = Field(default=None, ge=0, le=1)
     substantive_disclosure: float | None = Field(default=None, ge=0, le=1)
+    # Retained only for deserializing historical evaluations and their original rankings.
     removal_consistent_with_resolution: float | None = Field(default=None, ge=0, le=1)
     liquidity_or_financing_direction: str | None = None
     liquidity_or_financing_probabilities: dict[str, float] | None = None
@@ -141,6 +228,14 @@ class RankedDelta(BaseModel):
     signals: JevSemanticSignals | None = None
     evaluation_key: str | None = None
     semantic_error: str | None = None
+    impact_band: Literal["high", "medium", "low", "unclear"] | None = None
+    priority_band: Literal["high", "medium", "low", "review", "unavailable"] | None = None
+    comparison_reliability: (
+        Literal["supported", "needs_review", "unmatched", "unavailable"] | None
+    ) = None
+    impact_explanation: str | None = None
+    source_context: dict[str, list[FilingParagraph]] = Field(default_factory=dict)
+    comparison_evidence: ComparisonEvidence | None = None
 
 
 class CompanyAnalysis(BaseModel):

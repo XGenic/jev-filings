@@ -9,11 +9,12 @@ from uuid import uuid4
 
 from radar.config import Settings
 from radar.db import Database
-from radar.jev.score import rank_pair
+from radar.evidence import EvidenceIndex
+from radar.jev.score import RANKING_POLICY_VERSION, rank_pair, ranking_key
 from radar.match.align import align_paragraphs
 from radar.match.embeddings import EmbeddingProvider, SentenceTransformerEmbedder
 from radar.models import AnalysisRun, CompanyAnalysis, Form
-from radar.parse import parse_filing
+from radar.parse import parse_evidence, parse_filing
 from radar.sec.cache import atomic_write
 from radar.sec.client import SecClient
 from radar.sec.filings import discover_pair, fetch_pair
@@ -81,18 +82,38 @@ def analyze_tickers(
         else "disabled"
     )
     run.settings["jev_model"] = getattr(evaluator, "model", None) if settings.jev_enabled else None
+    run.settings["ranking_policy"] = RANKING_POLICY_VERSION
+    run.settings["comparison_evidence_version"] = "comparison-evidence-1"
     with SecClient(settings, offline=recompute) as client:
         for ticker in tickers:
             try:
                 comparison, old, new = fetch_and_parse(client, ticker, form, settings)
                 alignment = align_paragraphs(old, new, settings, embedder)
+                source_evidence = {
+                    "previous": parse_evidence(comparison.previous, old),
+                    "current": parse_evidence(comparison.current, new),
+                }
+                evidence_index = EvidenceIndex(
+                    comparison, old, new, source_evidence["previous"], source_evidence["current"]
+                )
                 warnings = list(alignment.warnings)
+                for evidence in source_evidence.values():
+                    atomic_write(
+                        settings.data_dir
+                        / "processed"
+                        / f"{evidence.filing_accession}.evidence.json",
+                        evidence.model_dump_json(indent=2).encode(),
+                    )
+                    warnings.extend(
+                        f"{evidence.filing_accession}: {warning}" for warning in evidence.warnings
+                    )
                 if alignment.embedding_model != run.embedding_model:
                     warnings.append(f"Actual alignment provider: {alignment.embedding_model}")
 
                 def evaluate(pair):
                     if pair.skip_reason:
                         return rank_pair(pair, None, settings.weights, form=comparison.current.form)
+                    source_context, comparison_evidence = evidence_index.build(pair)
                     if not settings.jev_enabled:
                         return rank_pair(
                             pair,
@@ -100,9 +121,16 @@ def analyze_tickers(
                             settings.weights,
                             semantic_error="Jev disabled; baseline signals only.",
                             form=comparison.current.form,
+                            source_context=source_context,
+                            comparison_evidence=comparison_evidence,
                         )
                     try:
-                        evaluation = evaluator.evaluate(pair, comparison)
+                        evaluation = evaluator.evaluate(
+                            pair,
+                            comparison,
+                            source_context=source_context,
+                            comparison_evidence=comparison_evidence,
+                        )
                     except Exception as exc:
                         return rank_pair(
                             pair,
@@ -110,6 +138,8 @@ def analyze_tickers(
                             settings.weights,
                             semantic_error=f"Jev unavailable: {type(exc).__name__}: {exc}",
                             form=comparison.current.form,
+                            source_context=source_context,
+                            comparison_evidence=comparison_evidence,
                         )
                     return rank_pair(
                         pair,
@@ -117,6 +147,8 @@ def analyze_tickers(
                         settings.weights,
                         evaluation_key=evaluation.cache_key,
                         form=comparison.current.form,
+                        source_context=source_context,
+                        comparison_evidence=comparison_evidence,
                     )
 
                 with ThreadPoolExecutor(max_workers=settings.jev_concurrency) as executor:
@@ -142,8 +174,26 @@ def analyze_tickers(
                         p.alignment is not None and p.alignment.status == "review"
                         for p in alignment.pairs
                     ),
+                    "impact_assessed_pairs": sum(
+                        d.signals is not None and d.signals.assessment is not None for d in deltas
+                    ),
+                    "supported_change_pairs": sum(
+                        d.comparison_reliability == "supported" for d in deltas
+                    ),
+                    "comparison_review_pairs": sum(d.priority_band == "review" for d in deltas),
                 }
-                deltas.sort(key=lambda delta: -delta.score)
+                counts["source_numeric_facts"] = sum(
+                    len(evidence.facts) for evidence in source_evidence.values()
+                )
+                counts["source_tables"] = sum(
+                    len(evidence.tables) for evidence in source_evidence.values()
+                )
+                counts["computed_fact_changes"] = sum(
+                    len(delta.comparison_evidence.changes)
+                    for delta in deltas
+                    if delta.comparison_evidence is not None
+                )
+                deltas.sort(key=ranking_key)
                 run.companies.append(
                     CompanyAnalysis(
                         comparison=comparison, counts=counts, deltas=deltas, warnings=warnings
@@ -158,10 +208,19 @@ def analyze_tickers(
 
 
 def rerank_run(run: AnalysisRun, settings: Settings) -> AnalysisRun:
+    from radar.jev.questions import QUESTION_SCHEMA_VERSION
+
     result = run.model_copy(deep=True)
     result.settings["weights"] = settings.weights.model_dump()
     result.settings["top_n"] = settings.top_n
+    if any(
+        delta.signals is not None and delta.signals.assessment is not None
+        for company in result.companies
+        for delta in company.deltas
+    ):
+        result.settings["ranking_policy"] = RANKING_POLICY_VERSION
     for company in result.companies:
+        original_deltas = company.deltas
         company.deltas = [
             rank_pair(
                 delta.pair,
@@ -170,10 +229,18 @@ def rerank_run(run: AnalysisRun, settings: Settings) -> AnalysisRun:
                 delta.evaluation_key,
                 delta.semantic_error,
                 form=company.comparison.current.form,
+                source_context=delta.source_context,
+                comparison_evidence=delta.comparison_evidence,
             )
             for delta in company.deltas
         ]
-        company.deltas.sort(key=lambda delta: -delta.score)
+        for original, reranked in zip(original_deltas, company.deltas):
+            if (
+                original.signals is not None
+                and original.signals.question_schema_version != QUESTION_SCHEMA_VERSION
+            ):
+                reranked.impact_explanation = original.impact_explanation
+        company.deltas.sort(key=ranking_key)
     return result
 
 

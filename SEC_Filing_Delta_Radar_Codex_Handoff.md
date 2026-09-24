@@ -1,8 +1,8 @@
 # SEC Filing Delta Radar — Codex Handoff
 
-**Status:** local pipeline and five-issuer live coverage verified; provisional blinded assistant ranking benchmark complete; independent human validation and full historical ingestion fixture outstanding (see §33–35).
+**Status:** evidence-first business assessments and two-lane reports implemented; five-company production and two fresh-issuer comparisons completed. Source-only assistant evaluation is mixed, not human-calibrated; full historical ingestion fixtures remain open (see §§39–40).
 **Primary goal:** build a local tool that detects *meaningful disclosure changes* between comparable SEC 10-K/10-Q filings, uses TypeSafe Jev as a high-throughput semantic judgment layer, and produces a compact HTML report for human review.
-**Research priority:** surface source-supported early evidence of expansion or developing commercial relationships, including indirect preparatory disclosures; distinguish hypotheses from confirmed deals (see §36).
+**Product priority:** explain what changed, categorize the business subject and nature of change, and prioritize source-supported business significance. Early commercial signals are one category, not the central success criterion; public novelty is separate and optional (see §39).
 
 ---
 
@@ -1487,3 +1487,229 @@ uv run radar research-report data/processed/research-screen-v2/study.json \
 It does not establish early-deal detection, population precision/recall, a causal Jev
 advantage, calibrated probabilities, or investment performance. The `data/` artifacts
 are local and Git-ignored; preserve them separately for reproducibility.
+
+
+## 39. General comparison, categorization and business impact — 2026-09-24 UTC
+
+The product objective is now **meaningful business comparison**, not discovery of
+unannounced deals. A previously public development can still be important when a filing
+changes its financial exposure, commitments, operating progress or outlook. The earlier
+screening study and broad assistant benchmark remain frozen; neither measures the quality
+of this new rubric.
+
+### Active assessment contract
+
+`filing-delta-2` replaces the active risk-specific direction questions with nine categorical
+judgments, retaining the useful relation-specific binary substantive/economic questions:
+
+| Dimension | Categories |
+|---|---|
+| Business subject | Demand/customers, pricing/margins, operations/capacity, liquidity/financing, capital allocation, legal/regulatory, accounting/controls, outlook/strategy, other, unclear |
+| Change nature | New commitment, changed outlook, operating change, exposure change, resolution, routine update, clarification, no substantive change, unclear |
+| Business direction | Positive, negative, mixed, neutral, unclear |
+| Relative magnitude | Company-scale, segment-scale, limited, unclear |
+| Duration | Persistent, temporary, one-off, unclear |
+| Timing | Current, near-term, long-term, conditional, unclear |
+| Evidence strength | Quantified, explicit, conditional, generic, unclear |
+| Comparison validity | Comparable, not comparable, unclear |
+| Business impact | High, medium, low, unclear |
+
+The exact versioned instructions and criteria live in `src/radar/jev/questions.py`.
+Magnitude requires disclosed relative scale or a concrete company-wide constraint; an
+absolute dollar figure is not enough. Favorable and adverse consequences receive equal
+treatment. Missing context is not low impact or neutral direction. Matched targets concern
+the difference; unmatched targets concern the disclosed matter, not proven novelty,
+disappearance or resolution. None of these fields predicts stock returns or determines
+legal materiality.
+
+Each request now includes the immediately preceding/following extracted source paragraphs
+on each available side, distinct from the target pair. Context is not a whole-filing search.
+Wrong-side accessions are rejected. Context, schema, questions, provider and model all enter
+the cache key. Every requested answer, label, probability distribution and selected choice
+must validate before the evaluation is cached. The existing probability-sum tolerance
+(`0.001`) is unchanged. Raw successful responses and categorical distributions remain
+persisted. Invalid outputs remain explicit semantic errors; no missing judgment is guessed.
+
+### Ranking and reliability
+
+`business-impact-1` is the recorded ranking policy:
+
+1. A definite impact band requires its selected label to have probability at least `0.60`;
+   otherwise the displayed impact is unclear. This is a decision threshold, not calibrated
+   confidence or probability of a financial outcome.
+2. A **supported** comparison requires a matched pair, aligned/exact/cosmetic status, no
+   alignment-review reasons or warnings, and a comparable judgment with probability at
+   least `0.60`. This is joint heuristic/model support, not independent verification.
+3. Priority follows the impact band only for supported, definite assessments. Unmatched,
+   questionable or unclear assessments enter **review**. Missing assessments are
+   **unavailable**. The underlying impact remains separately visible.
+4. Default order is supported high/medium/low, then review, then unavailable. Impact orders
+   candidates within review; existing configurable weighted scores break remaining ties.
+   Direction does not affect priority. Historical results retain weighted-score ranking.
+   The historical `domain_boost` has no contribution from the new categorical questions.
+
+The HTML shows subject, change nature, direction, impact, priority and comparison reliability
+separately. Expandable dimensions show the selected criterion and full distribution.
+Explanations are **rubric-based**, not generated rationales or evidence quotations.
+Original target text, adjacent source passages, lexical diff and alignment evidence remain
+inspectable. Per-company category/reliability filters and impact sorting operate only on
+the included `top_n` subset; full-set priority/review counts identify excluded candidates.
+Increase `top_n` in TOML, up to 500, to review more of the saved run.
+
+### Running and historical compatibility
+
+```bash
+# New comparison/assessment; --recompute prohibits SEC downloads, not uncached Jev calls.
+uv run radar analyze NPK --recompute --output data/reports/business-impact-npk.html
+
+# Offline rendering of stored judgments. Does not upgrade historical v1 assessments.
+uv run radar report 20260924T024532-36a42abd00 --output data/reports/npk-impact-top20.html
+```
+
+New evaluations use new cache entries. Historical signals remain readable without
+fabricated business categories or impact. `radar report` requires no provider credentials
+and does not modify stored judgments; current weights can still rerank historical results.
+To obtain the new rubric for an old pair, perform a new analysis instead of rewriting its
+old evaluation. Frozen research commands, packets, labels and reports are unchanged.
+
+### Source fixes and verification
+
+- Empty destination anchors, such as NPK's `<a href="#" id="mda"></a>`, no longer cause
+  actual section headings to be treated as table-of-contents links. Visible navigation
+  links remain excluded from section attribution.
+- Plural `quarters` now denotes quarterly reporting scope. The real NPK quarterly
+  income-tax passage matches its quarterly counterpart rather than the six-month result,
+  and both MD&A passages are correctly attributed to Part I / Item 2.
+- Full suite: **187 passed**. Ruff lint passed; `uv build` produced the wheel and sdist.
+- Live CLI run `20260924T024532-36a42abd00`: NPK's same cached filing pair, 34 matched
+  changes, 21 unmatched current and seven unmatched previous passages; **62 validated
+  Jev assessments**. Twelve first-pass outputs failed strict validation, then one still
+  failed on the first retry. Cache-based reruns completed without relaxing validation.
+- The full local review artifact, `data/reports/business-impact-npk.html`, includes all
+  62 eligible passages (`top_n=500` for this verification). Impact: five medium, 34 low,
+  23 unclear. Priority: one medium, 15 low, 46 review. These are model outputs, not
+  adjudicated accuracy results.
+- Replayed all 62 with provider calls forbidden: zero calls, identical cached judgments.
+  Historical four-company ranking matched the saved ranking at unchanged weights.
+  All seven pre-existing run payloads and all 908 pre-existing semantic-cache payloads
+  retained their hashes. The current NPK raw filing also remained byte-identical.
+- Browser exercised 30 new-filter option selections, empty results, stable impact sorting,
+  expanded assessment/source context, and independent historical-company controls.
+  Desktop and 390px mobile had no horizontal overflow or recorded browser errors.
+
+The new rubric is implemented, **not independently benchmarked**. Alignment is still
+heuristic, neighboring context may lack company-scale denominators, and repeated topics
+are not deduplicated. The existing XML-as-HTML parsing warning remains visible. Broader
+issuer coverage, human category/impact labels and a controlled ranking comparison remain
+necessary before claiming strong general accuracy or ranking improvement.
+
+---
+
+## 40. Evidence-first comparison packets and measured tuning — 2026-09-24 UTC
+
+This section supersedes §39's adjacent-only context and flat report selection.
+
+### Source and assessment contracts
+
+- `parse_evidence` extracts visible inline-XBRL numeric facts before narrative cleanup:
+  exact Decimal value, scale/sign, unit, entity, explicit dimensions, period, source anchor
+  and paragraph/table references. Raw filings remain immutable. Unsupported transformations,
+  nested/continued numeric content and ambiguous values are excluded with diagnostics.
+- Tables retain original cells, row ordinals, spans and header flags. Excerpt rows may be
+  noncontiguous; neither the model nor renderer infers missing column relationships.
+- `EvidenceIndex` retrieves bounded, scope-gated adjacent and relevant company context.
+  Source facts do not automatically belong to the target merely because words overlap.
+  Computed changes require attribution to both exact target paragraphs, matching
+  concept/entity/unit/dimensions, compatible periods and no conflicting values.
+  Same-duration sequential, year-over-year and point-in-time bases are explicit.
+  Quarter/YTD mismatches and within-filing comparator changes are not silently substituted.
+- Candidate counterpart passages for unmatched disclosures remain suggestions, not
+  alignments or proven appearances/disappearances. Absence from bounded context is not
+  absence from the filing.
+- Count caps are six context paragraphs, twelve contextual facts, two table excerpts and
+  twelve rows per table, per filing side. Up to two counterparts fit inside the paragraph
+  budget. A further **24,000-byte UTF-8 bound** applies to the compact supplemental packet.
+  Original target passages are never truncated. Whole optional records may be omitted;
+  the persisted evidence discloses this, and arithmetic references remain coherent.
+- Persistence retains full selected source records under `comparison-evidence-1`.
+  Provider encoding `source-reference-1` deduplicates fact records/quotes and uses sparse,
+  shape-preserving table geometry. Deterministic reference traversal survives canonical
+  JSON persistence; complete state/questions/provider/model still define cache identity.
+- Rubric `filing-delta-3` clarifies recurring operating/exposure changes, direction,
+  company-relative magnitude and economic mechanisms. Arithmetic alone does not establish
+  causality, direction, significance or comparability. No universal dollar/percentage
+  threshold or fabricated denominator was introduced. The 0.60 floor and strict response
+  validation remain unchanged.
+
+### Presentation
+
+`evidence-review-1` creates **Supported business changes** and **Potentially important
+disclosures requiring comparison review** lanes. `top_n` remains one total leading-card
+budget per issuer, not a separate budget per lane. Supported high/medium groups precede
+a review reservation of `min(remaining_budget, max(1, top_n // 4))` slots; supported low then remaining
+review/unavailable groups fill remaining space. Omitted records stay in the saved run.
+
+Grouping is conservative: matching event/period and exact numeric/qualitative evidence,
+not a broad shared subject. Every member retains its sources and independent assessment;
+conflicting or unsupported members cannot silently become a supported group. Filters and
+sorts operate only within the selected lane. Historical labels remain readable, and old
+judgments are not relabeled with current rubric criteria.
+
+### Observed results and limits
+
+- Five-company run `20260924T042703-f0fdba83b6`: **1,147/1,147 valid assessments** for
+  ASPI, CLMT, QURE, AOSL and AIP. Reports:
+  `data/reports/evidence-tuned-five-company.html` and `evidence-tuned-{ticker}.html`.
+- The 125-case fixed-target development ablation held both original targets/alignment
+  and exact rubric snapshots fixed. Original top-100 magnitude agreement with prior
+  assistant labels was 24 baseline, 14 rubric-only, 52 evidence-only, 45 combined.
+  Combined direction agreement was 47 versus 48 baseline; displayed-impact agreement
+  was 37 versus 62. Evidence helped magnitude, but rubric gains were not uniform.
+- AEHR/INOD were selected before source access. Both variants evaluated all 352 frozen
+  eligible targets; isolated source-only judges assessed the 63-member selection union.
+  All 228 quotations and endpoint citations verified before labels were joined to outcomes.
+  At 20 leading cards per issuer, worthwhile cards rose 15→21/40 and judge-sound,
+  worthwhile medium/high cards 11→15/40. AEHR improved 7→14 worthwhile cards; INOD fell 8→7.
+  Six new selected comparisons were judge-broken; all were already flagged in the review
+  lane, none in the supported-change lane.
+- These are assistant judgments, not human ground truth or calibrated probabilities.
+  Two issuers, no judge repeat, selected-set coverage and simultaneous configuration
+  changes do not establish general accuracy, recall, causal uplift or investment utility.
+  No selected multi-member groups appeared in the fresh sample; deduplication uplift
+  is not demonstrated by these counts.
+- Readable audits: `data/reports/evidence-tuning-ablation-review.html` and
+  `data/reports/evidence-tuning-fresh-review.html`. Inputs, failures, provider accounting,
+  frozen labels and recomputation scripts: `data/processed/evidence-tuning-v2/`.
+  Oversized failed first-revision inputs remain in `evidence-tuning-v1/`.
+
+### Verification and reproduction
+
+234 tests, Ruff lint/format checks and package build passed. Real-source checks covered
+897 exact target spans, 24 attributed calculations, ten unchanged raw filings and two
+repaired ASPI page continuations. Browser checks covered production/review filters, lane
+isolation, sorting, source evidence, grouped-member interaction and 390px layouts.
+Credential-free `radar report` produced byte-identical production HTML.
+
+1,851 stored judgments replayed with zero provider calls and identical keys/signals;
+2,331 prior evaluation payloads and 15 prior runs remained unchanged. A post-freeze
+dictionary-order cache fix preserved every frozen semantic request; its exact source
+change and equivalence proof are in `preservation-verification.json`. The original
+implementation snapshot remains immutable. The strict fresh driver intentionally rejects
+subsequent live-code drift; do not rewrite its frozen manifest to bypass that guard.
+
+```bash
+# Recompute audit metrics / render their source-linked reviews; no semantic calls.
+uv run --no-sync python data/processed/evidence-tuning-v2/analyze_ablation.py
+uv run --no-sync python data/processed/evidence-tuning-v2/analyze_fresh.py
+
+# Verify preserved history and cached evaluations.
+uv run python data/processed/evidence-tuning-v2/verify_preservation.py
+
+# Render saved production judgments without SEC or TypeSafe credentials.
+uv run radar report 20260924T042703-f0fdba83b6 --output data/reports/evidence-tuned-five-company.html
+```
+
+Audit data are local ignored artifacts, not part of a fresh clone. The fresh-label
+validator uses `jsonschema` in the local audit environment. Raw-source interpretation,
+historical-year row matching, unsupported XBRL formats and scale/context retrieval still
+require human review; fewer flags alone would not establish better comparisons.

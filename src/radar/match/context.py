@@ -25,7 +25,7 @@ _MONTH_PERIOD = re.compile(
 )
 _QUARTER = re.compile(
     r"\b(?:(?:first|second|third|fourth|1st|2nd|3rd|4th)\s+(?:fiscal\s+)?"
-    r"|fiscal\s+(?:(?:first|second|third|fourth)\s+)?)?quarter(?:ly)?"
+    r"|fiscal\s+(?:(?:first|second|third|fourth)\s+)?)?quarter(?:s|ly)?"
     r"(?:\s+ended)?\b|\bq[1-4]\b"
 )
 _YTD = re.compile(r"\byear\s+to\s+date\b|\bytd\b")

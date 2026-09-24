@@ -1,82 +1,29 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="referrer" content="no-referrer">
-<title>SEC Filing Delta Radar · {{ run.run_id }}</title>
-<style>
-:root{color-scheme:light;--ink:#14243a;--muted:#53627a;--line:#ccd6e3;--paper:#fff;--accent:#175780}
-*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:var(--ink);font:15px/1.55 system-ui,sans-serif}main{max-width:1440px;margin:auto;padding:24px}h1,h2,h3,h4,p{margin:0 0 12px}h1{font-size:1.85rem}h2{font-size:1.4rem}h3{font-size:1.1rem}h4{font-size:1rem}a{color:var(--accent)}a:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #c46700;outline-offset:3px}header,.company,.run-errors{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:22px}dl{margin:0}dt{font-weight:650}dd{margin:0;overflow-wrap:anywhere}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.small,.muted{color:var(--muted);font-size:.88rem}.notice{background:#fff5d9;border-left:4px solid #ba8100;padding:12px;margin:12px 0}.error{background:#fff0ee;border-left:4px solid #ad352b;padding:12px;overflow-wrap:anywhere}.comparison{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.filing{background:#f4f7fa;padding:14px;border-radius:6px}.counts,.badges,.metrics{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.badge,.metric{border:1px solid var(--line);background:#f4f7fa;padding:3px 9px;border-radius:6px;font-size:.85rem}.controls{display:flex;flex-wrap:wrap;gap:12px;border-block:1px solid var(--line);padding:14px 0;margin:18px 0 8px}.control{display:flex;flex-direction:column;gap:4px;min-width:150px}label{font-weight:650;font-size:.85rem}select{font:inherit;color:inherit;background:white;border:1px solid #78899e;border-radius:5px;padding:7px;max-width:320px}article.delta{border:1px solid var(--line);border-radius:8px;padding:18px;margin-top:16px}.delta-heading{display:flex;justify-content:space-between;gap:16px;align-items:baseline}.score{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}.paragraph,.diff{white-space:pre-wrap;overflow-wrap:anywhere}.paragraph{padding:12px;background:#f5f7fa;border-radius:6px}.absent{font-style:italic;color:var(--muted)}summary{cursor:pointer;font-weight:650;padding:8px 0}details{margin-top:8px}.diff{padding:12px;background:#f8fafc}del{background:#ffdcd8;text-decoration:line-through}ins{background:#d4efdf;text-decoration:underline}table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{text-align:left;vertical-align:top;padding:7px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}th{font-weight:650}.probabilities{margin:0;padding-left:18px}.reference{overflow-wrap:anywhere}ul{padding-left:22px}.empty{padding:20px;color:var(--muted);background:#f4f7fa}footer{margin:24px 0;color:var(--muted)}[hidden]{display:none!important}@media(max-width:720px){main{padding:12px}header,.company,.run-errors{padding:14px}.comparison{grid-template-columns:1fr}.delta-heading{display:block}select{max-width:100%}.control{min-width:0;flex:1 1 140px}.meta{grid-template-columns:1fr 1fr}article.delta{padding:12px}}@media print{body{background:white}main{max-width:none;padding:0}.controls{display:none}.company,article.delta{break-inside:avoid}details{display:block}header,.company{border-radius:0}}
-.alignment{border:1px solid var(--line);border-radius:8px;padding:14px;margin:14px 0}.alignment-reasons{border-left:4px solid #c46700;padding-left:24px}.alignment-alternative{border-top:1px solid var(--line);padding:14px 0}.alternative-excerpt{white-space:pre-wrap;overflow-wrap:anywhere}.alignment .small,.alignment li{overflow-wrap:anywhere}
-.score{white-space:normal;min-width:12rem}
-</style>
-</head>
-<body>
-<main>
-<header>
-<h1>SEC Filing Delta Radar</h1>
-<p>Human review of disclosure changes · {{ run.tickers | join(', ') }}</p>
-<dl class="meta">
-<div><dt>Generated</dt><dd>{{ run.generated_at.isoformat() }}</dd></div>
-<div><dt>Run</dt><dd>{{ run.run_id }}</dd></div>
-<div><dt>Semantic provider</dt><dd>{{ provider }}</dd></div>
-<div><dt>Provider model</dt><dd>{{ provider_model }}</dd></div>
-<div><dt>Question schema</dt><dd>{{ run.question_schema_version }}</dd></div>
-<div><dt>Comparison strategy</dt><dd>{{ run.strategy }}</dd></div>
-<div><dt>Embedding model</dt><dd>{{ run.embedding_model }}</dd></div>
-<div><dt>Form</dt><dd>{{ run.form or 'Per-company selection' }}</dd></div>
-</dl>
-<div class="notice"><strong>Review aid, not investment advice.</strong> Scores are weighted heuristic ranking values, not probabilities or investment recommendations. Semantic probabilities are model judgments, not verified facts. Alignment can pair unrelated text or miss moved disclosures; review both original filings and all ambiguity warnings. Unmatched passages have no selected counterpart: this does not establish that information is new, removed, or absent elsewhere in either filing.</div>
-<p class="small">Up to {{ top_n }} non-skipped deltas per company are included, in persisted ranking order. Controls sort and filter only this included subset; source counts do not change. Exact and cosmetic pairs are excluded. Missing cosine or semantic signals are unavailable, not zero. Lexical-only alignment and missing semantic evaluations provide reduced evidence. Raw SDK responses remain in the local database; evaluation references below identify them.</p>
-{% if run.settings.get('embedding_enabled') == false %}<p class="notice">Embedding alignment was disabled. Alignment is lexical-only; cosine similarity is unavailable.</p>{% endif %}
-{% if run.settings.get('jev_enabled') == false %}<p class="notice">Semantic evaluation was disabled. Review available lexical changes without semantic judgments.</p>{% endif %}
-</header>
-{% if run.errors %}
-<section class="run-errors" aria-labelledby="run-errors-heading">
-<h2 id="run-errors-heading">Run errors</h2>
-{% for ticker, error in run.errors.items() %}<div class="error"><h3>{{ ticker }}</h3><p>{{ error }}</p></div>{% endfor %}
-</section>
-{% endif %}
-{% if not companies %}<p class="empty">No company comparisons are available. See run errors for failed requests.</p>{% endif %}
-{% for company in companies %}
-{% set analysis = company.analysis %}
-<section class="company" id="{{ company.id }}" aria-labelledby="{{ company.id }}-heading">
-<h2 id="{{ company.id }}-heading">{{ analysis.comparison.current.ticker }} · {{ analysis.comparison.current.company_name }}</h2>
-<p class="small">CIK {{ analysis.comparison.current.cik }} · Strategy {{ analysis.comparison.strategy }}</p>
-<div class="comparison">
-{% for title, filing in [('Previous filing', analysis.comparison.previous), ('Current filing', analysis.comparison.current)] %}
-<section class="filing"><h3>{{ title }} · {{ filing.form }}</h3>
-<dl class="meta">
-<div><dt>Filed</dt><dd>{{ filing.filed_date.isoformat() }}</dd></div>
-<div><dt>Period of report</dt><dd>{{ filing.period_of_report.isoformat() if filing.period_of_report else 'Unavailable' }}</dd></div>
-<div><dt>Accession</dt><dd>{{ filing.accession }}</dd></div>
-<div><dt>Primary document</dt><dd>{{ filing.primary_document }}</dd></div>
-</dl>
-{% set source = filing.source_url | sec_url %}
-{% if source %}<a href="{{ source }}" target="_blank" rel="noopener noreferrer">Open {{ title | lower }} on SEC.gov</a>{% else %}<p class="error">Source link unavailable: not a valid HTTPS SEC URL.</p>{% endif %}
-</section>
-{% endfor %}
-</div>
-<div class="counts" aria-label="Full comparison counts">
-{% for name, count in analysis.counts.items() %}<span class="badge">{{ name | label }}: {{ count }}</span>{% endfor %}
-<span class="badge">Eligible deltas: {{ company.eligible }}</span><span class="badge">Skipped exact/cosmetic pairs: {{ company.skipped }}</span>
-</div>
-{% if analysis.warnings %}<div class="notice"><strong>Limitations and alignment warnings</strong><ul>{% for warning in analysis.warnings %}<li>{{ warning }}</li>{% endfor %}</ul></div>{% endif %}
-<div class="controls">
-<div class="control"><label for="{{ company.id }}-sort">Sort included deltas</label><select id="{{ company.id }}-sort" data-control="sort"><option value="rank">Rank (best first)</option><option value="cosine">Cosine (lowest first)</option><option value="economic">Economic relevance (highest first)</option></select></div>
-<div class="control"><label for="{{ company.id }}-section">Section</label><select id="{{ company.id }}-section" data-control="section"><option value="">All sections</option>{% for section in company.sections %}<option value="{{ section }}">{{ section }}</option>{% endfor %}</select></div>
-<div class="control"><label for="{{ company.id }}-relation">Relation</label><select id="{{ company.id }}-relation" data-control="relation"><option value="">All relations</option><option value="matched">Matched</option><option value="added">Unmatched current</option><option value="deleted">Unmatched previous</option></select></div>
-<div class="control"><label for="{{ company.id }}-domain">Domain</label><select id="{{ company.id }}-domain" data-control="domain"><option value="">All domains</option>{% for key, name in company.domains %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></div>
-<div class="control"><label for="{{ company.id }}-alignment">Alignment status</label><select id="{{ company.id }}-alignment" data-control="alignment"><option value="">All alignment statuses</option><option value="review">Needs review</option><option value="aligned">Aligned</option><option value="unmatched">Unmatched</option><option value="unavailable">Unavailable (historical)</option></select></div>
-</div>
-<p class="small" role="status" aria-live="polite"><span data-visible-count>{{ company.deltas | length }}</span> visible / {{ company.deltas | length }} included / {{ company.eligible }} eligible deltas. Full comparison counts above are unchanged by filters.</p>
-<noscript><p class="notice">JavaScript is disabled. All included deltas remain readable; interactive sorting and filtering are unavailable.</p></noscript>
-<div data-delta-list>
-{% for row in company.deltas %}
+{% macro passage(row, analysis) -%}
 {% set delta = row.delta %}{% set pair = delta.pair %}
-<article class="delta" data-rank="{{ row.rank }}" data-cosine="{{ pair.cosine_similarity if pair.cosine_similarity is not none else '' }}" data-economic="{{ row.economic if row.economic is not none else '' }}" data-relation="{{ pair.relation }}" data-alignment="{{ row.alignment_status }}" data-sections="{{ row.sections_json }}" data-domains="{{ row.domains_json }}">
-<div class="delta-heading"><h3>#{{ row.rank }} · {{ row.relation_label }} · {{ row.sections | join(' → ') }}</h3><span class="score">Heuristic economic ranking score {{ '%.4f' | format(delta.score) }}</span></div>
+<div class="delta-heading"><h3>#{{ row.rank }} · {{ row.relation_label }} · {{ row.sections | join(' → ') }}</h3><span class="score">Business impact: {{ row.categories.impact_band | label }}</span></div>
+<dl class="meta impact-summary">
+<div><dt>Business subject</dt><dd>{{ row.categories.business_subject | label }}</dd></div>
+<div><dt>Change nature</dt><dd>{{ row.categories.change_nature | label }}</dd></div>
+<div><dt>Business direction</dt><dd>{{ row.categories.business_direction | label }}</dd></div>
+<div><dt>Review priority</dt><dd>{{ row.priority | label }}</dd></div>
+<div><dt>Comparison reliability</dt><dd>{{ row.categories.comparison_reliability | label }}</dd></div>
+</dl>
+{% if row.dimensions %}
+<p class="impact-explanation"><strong>Rubric-based impact explanation:</strong> {{ delta.impact_explanation or 'Unavailable: no explanation was recorded.' }}</p>
+<p class="small">{% if pair.relation == 'matched' %}The assessment concerns the selected comparison; comparison reliability determines whether it supports a change claim.{% else %}The assessment concerns the disclosed matter on the available side. Direction is not inferred from an omitted counterpart.{% endif %} Positive and negative consequences receive equal impact treatment.</p>
+<details class="impact-details"><summary>Business assessment dimensions, criteria and distributions</summary>
+<p class="small">Recorded question schema: {{ delta.signals.question_schema_version }}. Criteria are shown only when that recorded schema matches the installed rubric; otherwise they remain unavailable rather than being replaced with current wording. These are rubric criteria, not generated model reasoning or evidence quotations. Judgments use only supplied passages, metadata and recorded context, not the whole filing. All distributions are uncalibrated. The selected business-impact category can differ from the displayed band below the heuristic threshold.</p>
+{% for dimension in row.dimensions %}
+<section class="impact-dimension"><h4>{{ dimension.name }}: {{ dimension.choice | label }}</h4>
+<p><strong>Selected criterion:</strong> {{ dimension.criterion }}</p>
+<ul class="distribution" aria-label="{{ dimension.name }} full probability distribution">
+{% for outcome in dimension.distribution %}<li><strong>{{ outcome.choice | label }}: {{ '%.4f' | format(outcome.probability) }}</strong> — {{ outcome.criterion }}</li>{% endfor %}
+</ul></section>
+{% endfor %}
+</details>
+{% else %}
+<p class="notice impact-unavailable">Business subject, change nature, direction, impact and assessment dimensions are unavailable. Historical signals or missing-provider results are not reinterpreted as a business assessment.</p>
+{% endif %}
 <div class="metrics"><span class="metric">Cosine: {{ '%.4f' | format(pair.cosine_similarity) if pair.cosine_similarity is not none else 'Unavailable' }}</span><span class="metric">Lexical similarity: {{ '%.4f' | format(pair.lexical_similarity) if pair.lexical_similarity is not none else 'Unavailable' }}</span></div>
 {% if row.domains %}<div class="badges" aria-label="Semantic domains">{% for domain in row.domains %}<span class="badge">{{ domain.name }}: {{ domain.direction }}</span>{% endfor %}</div>{% endif %}
 <section class="alignment" aria-label="Alignment reliability">
@@ -126,53 +73,232 @@
 <section><h4>{{ title }}</h4>{% if paragraph %}<p class="small">Item {{ paragraph.item or 'Unclassified' }} · {{ paragraph.section or 'Unclassified' }} · Paragraph {{ paragraph.ordinal }} · {{ paragraph.paragraph_id }}</p><div class="paragraph">{{ paragraph.text }}</div>{% else %}<p class="paragraph absent">No counterpart selected by the aligner. Check the complete filing before inferring absence.</p>{% endif %}</section>
 {% endfor %}
 </div>
+<details class="source-context"><summary>Recorded source context · adjacent and retrieved passages</summary>
+<p class="small">Only context supplied with this assessment is shown. It can clarify the selected passage, but is not a complete filing or evidence of public novelty.</p>
+<div class="comparison">
+{% for side, endpoint in [('previous', pair.old), ('current', pair.new)] %}
+<section><h4>{{ side | label }} filing context</h4>
+{% for paragraph in delta.source_context.get(side, []) %}
+<p class="small">{{ side | label }} side · {% if endpoint and paragraph.ordinal < endpoint.ordinal %}Earlier in filing{% elif endpoint and paragraph.ordinal > endpoint.ordinal %}Later in filing{% else %}Recorded source passage{% endif %} · Accession {{ paragraph.filing_accession }} · Item {{ paragraph.item or 'Unclassified' }} · {{ paragraph.section or 'Unclassified' }} · Paragraph {{ paragraph.ordinal }} · {{ paragraph.paragraph_id }}</p>
+<div class="paragraph">{{ paragraph.text }}</div>
+{% else %}<p class="absent">No additional source passages recorded on this side.</p>{% endfor %}
+</section>
+{% endfor %}
+</div></details>
+{% if delta.comparison_evidence %}
+{% set evidence = delta.comparison_evidence %}
+<section class="comparison-evidence" aria-label="Recorded comparison evidence">
+<h4>Computed numeric comparison basis: {{ evidence.basis | label }}</h4>
+<p>{{ evidence.basis_reason }}</p>
+<p class="small">Recorded source evidence, not a new judgment. Arithmetic describes numeric changes only; it does not establish a financial consequence, comparability, or public novelty. Explicit fact entities and dates, not table column positions, govern arithmetic.</p>
+{% if evidence.uncertainties %}<div class="notice"><strong>Evidence uncertainties</strong><ul>{% for uncertainty in evidence.uncertainties %}<li>{{ uncertainty }}</li>{% endfor %}</ul></div>{% endif %}
+{% if evidence.possible_channels %}<p><strong>Possible channels for review (not established effects):</strong> {{ evidence.possible_channels | join('; ') }}</p>{% endif %}
+<details class="fact-changes"><summary>Source-cited numeric changes · {{ evidence.changes | length }}</summary>
+{% for change in evidence.changes %}
+<section><h4>{{ change.metric }} · {{ change.basis | label }}</h4>
+<p class="arithmetic">{{ change.current.value }} − ({{ change.previous.value }}) = {{ change.absolute_change }} {{ change.current.unit }}. Relative change: {% if change.percent_change is not none %}{{ change.percent_change }}%{% else %}Unavailable{% endif %}.</p>
+<div class="comparison"><section><h4>Previous numeric source</h4>{{ fact_source(change.previous, analysis) }}</section><section><h4>Current numeric source</h4>{{ fact_source(change.current, analysis) }}</section></div>
+</section>
+{% else %}<p class="absent">No comparable numeric change recorded.</p>{% endfor %}
+</details>
+<details class="changed-spans"><summary>Recorded changed spans</summary><div class="comparison">
+{% for side in ['previous', 'current'] %}<section><h4>{{ side | label }} spans</h4>{% for span in evidence.changed_spans.get(side, []) %}<div class="paragraph">{{ span }}</div>{% else %}<p class="absent">No changed spans recorded on this side.</p>{% endfor %}</section>{% endfor %}
+</div></details>
+<details class="numeric-context"><summary>Numeric context with source units, entities and periods</summary><div class="comparison">
+{% for side in ['previous', 'current'] %}<section><h4>{{ side | label }} numeric context</h4>{% for fact in evidence.context_facts.get(side, []) %}{{ fact_source(fact, analysis) }}{% else %}<p class="absent">No numeric context recorded on this side.</p>{% endfor %}</section>{% endfor %}
+</div></details>
+<details class="source-tables"><summary>Source table excerpts with original row indices</summary>
+<p class="small">Cells below are transcribed in original source-cell order, not a reconstructed column grid. Header flags and spans describe original cells only. Rows can be noncontiguous and headers incomplete; neither adjacency nor position establishes a numeric period.</p>
+{% for side in ['previous', 'current'] %}
+<h4>{{ side | label }} tables</h4>
+{% for table in evidence.tables.get(side, []) %}
+<section class="source-table"><h4>{{ table.caption or 'Caption unavailable' }}</h4>
+<p class="small">Accession {{ table.filing_accession }} · Table {{ table.table_id }} · Item {{ table.item or 'Unclassified' }} · {{ table.section or 'Unclassified' }} · Anchor {{ table.source_anchor or 'Unavailable' }} {{ source_link(table.filing_accession, table.source_anchor, analysis) }}</p>
+<div class="table-scroll" role="region" aria-label="Original source table rows" tabindex="0"><table><thead><tr><th scope="col">Source row index</th><th scope="col">Original cells in source order</th></tr></thead><tbody>
+{% for cells in table.rows %}{% set row_index = loop.index0 %}
+<tr><th scope="row">{{ table.row_indices[row_index] if row_index < table.row_indices | length else 'Unavailable' }}</th><td><ol class="source-cells">
+{% for cell in cells %}{% set cell_index = loop.index0 %}<li>{% if row_index < table.header_cells | length and cell_index < table.header_cells[row_index] | length and table.header_cells[row_index][cell_index] %}<strong>Source header: </strong>{% endif %}<span>{{ cell }}</span>{% if row_index < table.cell_spans | length and cell_index < table.cell_spans[row_index] | length %}<span class="small"> (source rowspan {{ table.cell_spans[row_index][cell_index][0] }}, colspan {{ table.cell_spans[row_index][cell_index][1] }})</span>{% endif %}</li>{% endfor %}
+</ol></td></tr>{% endfor %}
+</tbody></table></div></section>
+{% else %}<p class="absent">No table excerpt recorded on this side.</p>{% endfor %}
+{% endfor %}
+</details>
+<details class="counterpart-candidates"><summary>Possible counterpart passages, not selected comparisons</summary>
+{% for side in ['previous', 'current'] %}<section><h4>{{ side | label }} candidates</h4>{% for paragraph in evidence.counterparts.get(side, []) %}<p class="small">Accession {{ paragraph.filing_accession }} · Item {{ paragraph.item or 'Unclassified' }} · {{ paragraph.section or 'Unclassified' }} · Paragraph {{ paragraph.ordinal }} · {{ paragraph.paragraph_id }} {{ source_link(paragraph.filing_accession, none, analysis) }}</p><div class="paragraph">{{ paragraph.text }}</div>{% else %}<p class="absent">No counterpart candidate recorded; this does not prove absence.</p>{% endfor %}</section>{% endfor %}
+</details>
+</section>
+{% else %}<p class="notice evidence-unavailable">Comparison evidence unavailable: no structured evidence was recorded. Historical results are not reparsed or rejudged.</p>{% endif %}
 <details><summary>Word-level change · deleted / inserted text</summary><p class="small">Deletions are struck through; insertions are underlined. Word diff is lexical, not a semantic explanation.</p><div class="diff">{{ row.diff }}</div></details>
-<details><summary>Economic ranking contributions and semantic details</summary>
-<h4>Weighted economic ranking contributions</h4><p class="small">These are already weighted contributions, not raw probabilities. Their sum is the heuristic economic ranking score; displayed rounding may differ.</p>
-<table><thead><tr><th scope="col">Component</th><th scope="col">Contribution</th></tr></thead><tbody>{% for name, value in delta.components.items() %}<tr><th scope="row">{{ name | label }}</th><td>{{ '%+.6f' | format(value) }}</td></tr>{% endfor %}</tbody></table>
+<details class="ranking-details"><summary>Within-band tiebreaker / historical score and semantic details</summary>
+<h4>Weighted heuristic score: {{ '%.4f' | format(delta.score) }}</h4><p class="small">This is a within-band tiebreaker or historical ranking heuristic, not a business-impact factor or probability. The contributions are already weighted; their sum is the score, and displayed rounding may differ.</p>
+<div class="table-scroll" role="region" aria-label="Weighted ranking contributions" tabindex="0"><table><thead><tr><th scope="col">Component</th><th scope="col">Contribution</th></tr></thead><tbody>{% for name, value in delta.components.items() %}<tr><th scope="row">{{ name | label }}</th><td>{{ '%+.6f' | format(value) }}</td></tr>{% endfor %}</tbody></table></div>
 {% if delta.signals %}
-<h4>Normalized semantic judgments</h4><p class="small">Question schema {{ delta.signals.question_schema_version }}. Binary values below are P(yes); categorical values show the selected direction and full probability distribution. Unavailable fields were not evaluated or not returned.</p>
-<table><thead><tr><th scope="col">Signal</th><th scope="col">P(yes)</th></tr></thead><tbody>{% for signal in row.scalar_signals %}<tr><th scope="row">{{ signal.name }}</th><td>{{ '%.4f' | format(signal.value) if signal.value is not none else 'Unavailable' }}</td></tr>{% endfor %}</tbody></table>
-<table><thead><tr><th scope="col">Domain</th><th scope="col">Direction</th><th scope="col">Probabilities</th></tr></thead><tbody>{% for domain in row.directions %}<tr><th scope="row">{{ domain.name }}</th><td>{{ domain.direction if domain.direction is not none else 'Unavailable' }}</td><td>{% if domain.probabilities is not none %}<ul class="probabilities">{% for choice, probability in domain.probabilities.items() %}<li>{{ choice }}: {{ '%.4f' | format(probability) }}</li>{% endfor %}</ul>{% else %}Unavailable{% endif %}</td></tr>{% endfor %}</tbody></table>
+<h4>Normalized semantic judgments</h4><p class="small">Question schema {{ delta.signals.question_schema_version }}. Binary values below are P(yes). Unavailable fields were not evaluated or not returned.</p>
+<div class="table-scroll" role="region" aria-label="Binary semantic probabilities" tabindex="0"><table><thead><tr><th scope="col">Signal</th><th scope="col">P(yes)</th></tr></thead><tbody>{% for signal in row.scalar_signals %}<tr><th scope="row">{{ signal.name }}</th><td>{{ '%.4f' | format(signal.value) if signal.value is not none else 'Unavailable' }}</td></tr>{% endfor %}</tbody></table></div>
+<h4>Historical risk-domain judgments</h4><p class="small">Legacy risk directions and their uncalibrated distributions are preserved when recorded; they are not substituted for business direction or impact.</p>
+<div class="table-scroll" role="region" aria-label="Historical risk-domain probabilities" tabindex="0"><table><thead><tr><th scope="col">Domain</th><th scope="col">Direction</th><th scope="col">Probabilities</th></tr></thead><tbody>{% for domain in row.directions %}<tr><th scope="row">{{ domain.name }}</th><td>{{ domain.direction if domain.direction is not none else 'Unavailable' }}</td><td>{% if domain.probabilities is not none %}<ul class="probabilities">{% for choice, probability in domain.probabilities.items() %}<li>{{ choice }}: {{ '%.4f' | format(probability) }}</li>{% endfor %}</ul>{% else %}Unavailable{% endif %}</td></tr>{% endfor %}</tbody></table></div>
 {% endif %}
 <p class="small reference">Evaluation reference: <code>{{ delta.evaluation_key or 'Unavailable' }}</code></p>
 </details>
+{%- endmacro %}
+{% macro source_link(accession, anchor, analysis) -%}
+{% for filing in [analysis.comparison.previous, analysis.comparison.current] if filing.accession == accession %}
+{% set source = filing.source_url | sec_url %}
+{% if source %}<a href="{{ source.split('#')[0] ~ '#' ~ (anchor | urlencode) if anchor else source }}" target="_blank" rel="noopener noreferrer">Open cited SEC source{% if anchor %} at anchor{% endif %}</a>{% else %}<span class="absent">Source link unavailable.</span>{% endif %}
+{% endfor %}
+{%- endmacro %}
+{% macro fact_source(fact, analysis) -%}
+<div class="source-fact">
+<p><strong>{{ fact.label }}:</strong> {{ fact.value }} {{ fact.unit }} · Entity {{ fact.entity }} · Period {% if fact.period_start %}{{ fact.period_start }} to {% else %}instant {% endif %}{{ fact.period_end }}</p>
+<p class="small">Concept {{ fact.concept }} · Accession {{ fact.filing_accession }} · Fact {{ fact.fact_id }} · Anchor {{ fact.source_anchor or 'Unavailable' }} · Paragraphs {{ fact.paragraph_ids | join(', ') or 'Unavailable' }} · Table {{ fact.table_id or 'Unavailable' }} · Source scale {{ fact.scale }} · Source sign {{ fact.sign or 'Not specified' }} · Source format {{ fact.format or 'Not specified' }}</p>
+{% if fact.dimensions %}<ul>{% for dimension, value in fact.dimensions.items() %}<li>{{ dimension }}: {{ value }}</li>{% endfor %}</ul>{% endif %}
+<blockquote class="paragraph">{{ fact.quote }}</blockquote>{{ source_link(fact.filing_accession, fact.source_anchor, analysis) }}
+</div>
+{%- endmacro %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>SEC Filing Delta Radar · {{ run.run_id }}</title>
+<style>
+:root{color-scheme:light;--ink:#14243a;--muted:#53627a;--line:#ccd6e3;--paper:#fff;--accent:#175780}
+*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:var(--ink);font:15px/1.55 system-ui,sans-serif}main{max-width:1440px;margin:auto;padding:24px}h1,h2,h3,h4,p{margin:0 0 12px}h1{font-size:1.85rem}h2{font-size:1.4rem}h3{font-size:1.1rem}h4{font-size:1rem}a{color:var(--accent)}a:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #c46700;outline-offset:3px}header,.company,.run-errors{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:22px}dl{margin:0}dt{font-weight:650}dd{margin:0;overflow-wrap:anywhere}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.small,.muted{color:var(--muted);font-size:.88rem}.notice{background:#fff5d9;border-left:4px solid #ba8100;padding:12px;margin:12px 0}.error{background:#fff0ee;border-left:4px solid #ad352b;padding:12px;overflow-wrap:anywhere}.comparison{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.filing{background:#f4f7fa;padding:14px;border-radius:6px}.counts,.badges,.metrics{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.badge,.metric{border:1px solid var(--line);background:#f4f7fa;padding:3px 9px;border-radius:6px;font-size:.85rem}.controls{display:flex;flex-wrap:wrap;gap:12px;border-block:1px solid var(--line);padding:14px 0;margin:18px 0 8px}.control{display:flex;flex-direction:column;gap:4px;min-width:150px}label{font-weight:650;font-size:.85rem}select{font:inherit;color:inherit;background:white;border:1px solid #78899e;border-radius:5px;padding:7px;max-width:320px}article.delta{border:1px solid var(--line);border-radius:8px;padding:18px;margin-top:16px}.delta-heading{display:flex;justify-content:space-between;gap:16px;align-items:baseline}.score{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}.paragraph,.diff{white-space:pre-wrap;overflow-wrap:anywhere}.paragraph{padding:12px;background:#f5f7fa;border-radius:6px}.absent{font-style:italic;color:var(--muted)}summary{cursor:pointer;font-weight:650;padding:8px 0}details{margin-top:8px}.diff{padding:12px;background:#f8fafc}del{background:#ffdcd8;text-decoration:line-through}ins{background:#d4efdf;text-decoration:underline}table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{text-align:left;vertical-align:top;padding:7px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}th{font-weight:650}.probabilities{margin:0;padding-left:18px}.reference{overflow-wrap:anywhere}ul{padding-left:22px}.empty{padding:20px;color:var(--muted);background:#f4f7fa}footer{margin:24px 0;color:var(--muted)}[hidden]{display:none!important}@media(max-width:720px){main{padding:12px}header,.company,.run-errors{padding:14px}.comparison{grid-template-columns:1fr}.delta-heading{display:block}select{max-width:100%}.control{min-width:0;flex:1 1 140px}.meta{grid-template-columns:1fr 1fr}article.delta{padding:12px}}@media print{body{background:white}main{max-width:none;padding:0}.controls{display:none}.company,article.delta{break-inside:avoid}details{display:block}header,.company{border-radius:0}}
+.alignment{border:1px solid var(--line);border-radius:8px;padding:14px;margin:14px 0}.alignment-reasons{border-left:4px solid #c46700;padding-left:24px}.alignment-alternative{border-top:1px solid var(--line);padding:14px 0}.alternative-excerpt{white-space:pre-wrap;overflow-wrap:anywhere}.alignment .small,.alignment li{overflow-wrap:anywhere}
+.score{white-space:normal;min-width:12rem}
+.impact-summary{margin:14px 0}.impact-dimension{border-top:1px solid var(--line);padding:12px 0}.impact-dimension h4,.impact-dimension p,.source-context p{overflow-wrap:anywhere}.distribution{margin:8px 0}.distribution li{margin-bottom:8px;overflow-wrap:anywhere}.table-scroll{max-width:100%;overflow-x:auto}.source-context .paragraph{margin-bottom:12px}.controls .control{max-width:100%}@media(max-width:480px){.meta{grid-template-columns:1fr}.impact-summary{gap:8px}.score{min-width:0}.controls select{width:100%}.table-scroll table{min-width:280px}}
+.table-scroll:focus-visible{outline:3px solid #c46700;outline-offset:3px}
+.lane{border-top:2px solid var(--line);margin-top:24px;padding-top:20px;min-width:0}.lane-heading{font-size:1.25rem}.group-summary{border-left:4px solid var(--accent);padding:10px 14px;background:#f4f7fa;margin-bottom:16px}.group-members>.group-member{border-top:2px solid var(--line);padding:18px 0;margin-top:16px}.comparison-evidence{border:1px solid var(--line);padding:14px;margin-top:16px;overflow-wrap:anywhere}.source-fact{border-bottom:1px solid var(--line);padding:12px 0}.source-fact blockquote{margin:8px 0}.source-cells{margin:0;padding-left:22px}.source-table{margin:16px 0}.comparison>section{min-width:0}.lane p,.lane h3,.group-summary li{overflow-wrap:anywhere}@media(max-width:480px){.comparison-evidence{padding:8px}.group-summary{padding:8px}.table-scroll table{min-width:0}.source-table th:first-child{width:65px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>SEC Filing Delta Radar</h1>
+<p>Human review of disclosure changes · {{ run.tickers | join(', ') }}</p>
+<dl class="meta">
+<div><dt>Generated</dt><dd>{{ run.generated_at.isoformat() }}</dd></div>
+<div><dt>Run</dt><dd>{{ run.run_id }}</dd></div>
+<div><dt>Semantic provider</dt><dd>{{ provider }}</dd></div>
+<div><dt>Provider model</dt><dd>{{ provider_model }}</dd></div>
+<div><dt>Question schema</dt><dd>{{ run.question_schema_version }}</dd></div>
+<div><dt>Comparison strategy</dt><dd>{{ run.strategy }}</dd></div>
+<div><dt>Embedding model</dt><dd>{{ run.embedding_model }}</dd></div>
+<div><dt>Form</dt><dd>{{ run.form or 'Per-company selection' }}</dd></div>
+</dl>
+<div class="notice"><strong>Review aid, not investment advice.</strong> Business impact is a source-limited rubric judgment about favorable or adverse business consequences, not stock returns, legal materiality, or public novelty. Categorical probabilities are uncalibrated model judgments, not verified facts. A 0.6 selected-category threshold is a heuristic, not calibrated confidence. Priority and comparison reliability are separate from impact. Alignment can pair unrelated text or miss moved disclosures; review both original filings and all ambiguity warnings. Unmatched passages describe a disclosed matter, not a proven change: no selected counterpart does not establish that information is new, removed, or absent elsewhere in either filing.</div>
+<p class="small">Definite impact bands require a selected business-impact probability of at least 0.6. A supported comparison also requires a comparable judgment at that threshold, aligned paragraphs and no recorded alignment-review reasons. Priority follows the impact band only for supported comparisons; uncertain or unmatched assessments enter review. These thresholds are heuristics, not calibrated confidence, and unsupported comparisons can still disclose important matters.</p>
+<p class="small">Up to {{ top_n }} leading cards per company form one total reading budget across both lanes, not a budget per lane. Repeated evidence can share a card; every included member retains its original passages and independent judgments. Controls affect only included groups in their own company and lane, never the full saved set. Exact and cosmetic pairs are excluded. Missing cosine, semantics and evidence are unavailable, not zero or reliable. Raw SDK responses remain in the local database; evaluation references identify them.</p>
+{% if run.settings.get('embedding_enabled') == false %}<p class="notice">Embedding alignment was disabled. Alignment is lexical-only; cosine similarity is unavailable.</p>{% endif %}
+{% if run.settings.get('jev_enabled') == false %}<p class="notice">Semantic evaluation was disabled. Review available lexical changes without semantic judgments.</p>{% endif %}
+</header>
+{% if run.errors %}
+<section class="run-errors" aria-labelledby="run-errors-heading">
+<h2 id="run-errors-heading">Run errors</h2>
+{% for ticker, error in run.errors.items() %}<div class="error"><h3>{{ ticker }}</h3><p>{{ error }}</p></div>{% endfor %}
+</section>
+{% endif %}
+{% if not companies %}<p class="empty">No company comparisons are available. See run errors for failed requests.</p>{% endif %}
+{% for company in companies %}
+{% set analysis = company.analysis %}
+<section class="company" id="{{ company.id }}" aria-labelledby="{{ company.id }}-heading">
+<h2 id="{{ company.id }}-heading">{{ analysis.comparison.current.ticker }} · {{ analysis.comparison.current.company_name }}</h2>
+<p class="small">CIK {{ analysis.comparison.current.cik }} · Strategy {{ analysis.comparison.strategy }}</p>
+<div class="comparison">
+{% for title, filing in [('Previous filing', analysis.comparison.previous), ('Current filing', analysis.comparison.current)] %}
+<section class="filing"><h3>{{ title }} · {{ filing.form }}</h3>
+<dl class="meta">
+<div><dt>Filed</dt><dd>{{ filing.filed_date.isoformat() }}</dd></div>
+<div><dt>Period of report</dt><dd>{{ filing.period_of_report.isoformat() if filing.period_of_report else 'Unavailable' }}</dd></div>
+<div><dt>Accession</dt><dd>{{ filing.accession }}</dd></div>
+<div><dt>Primary document</dt><dd>{{ filing.primary_document }}</dd></div>
+</dl>
+{% set source = filing.source_url | sec_url %}
+{% if source %}<a href="{{ source }}" target="_blank" rel="noopener noreferrer">Open {{ title | lower }} on SEC.gov</a>{% else %}<p class="error">Source link unavailable: not a valid HTTPS SEC URL.</p>{% endif %}
+</section>
+{% endfor %}
+</div>
+<div class="counts" aria-label="Full comparison counts">
+{% for name, count in analysis.counts.items() %}<span class="badge">{{ name | label }}: {{ count }}</span>{% endfor %}
+<span class="badge">Eligible deltas: {{ company.eligible }}</span><span class="badge">Skipped exact/cosmetic pairs: {{ company.skipped }}</span>
+{% for band, count in company.priority_counts.items() %}<span class="badge" data-priority-count="{{ band }}">{% if band in ['high', 'medium', 'low'] %}{{ band | label }} priority{% elif band == 'review' %}Review queue{% else %}Priority unavailable{% endif %}: {{ count }}</span>{% endfor %}
+</div>
+<p class="selection-policy" data-selection-policy="{{ selection_policy }}"><strong>Report selection policy: {{ selection_policy }}.</strong> {% if company.historical %}<strong>Historical mode:</strong> No business assessments or comparison evidence were recorded in this run. Original flat ranking and scores are preserved without grouping or synthesized impact bands.{% else %}Supported high/medium groups have first claim on the {{ top_n }} total leading-card slots. Up to {{ company.reservation }} remaining slots are reserved for assessed review groups; supported low groups then fill capacity before additional review and unavailable groups. Within each category, persisted order is retained. Unavailable judgments do not displace supported low groups; {{ company.review_selected }} review/unavailable groups selected. A group with any unsupported or missing judgment cannot enter the supported lane.{% endif %}</p>
+<p class="selection-counts" data-candidate-passages="{{ company.eligible }}" data-total-groups="{{ company.groups }}" data-included-passages="{{ company.included_passages }}" data-omitted-groups="{{ company.omitted_groups }}">{{ company.eligible }} candidate passages → {{ company.groups }} groups; {{ company.deltas | length }} leading cards include {{ company.included_passages }} passages. {{ company.omitted_groups }} groups / {{ company.eligible - company.included_passages }} passages omitted by the reading budget, not judged unimportant. All omitted candidates remain in the saved run.</p>
+<p class="small">Saved priority counts above cover candidate passages in the full eligible set, not groups or only the selected subset. Filters match an individual member's categories; all original group members remain inspectable. A grouped summary never replaces their independent judgments. Conservative grouping uses exact fact-change identities or duplicated full event text with matching dates and recorded scope, never a shared broad subject.</p>
+{% if analysis.warnings %}<details class="notice diagnostics"><summary>Filing extraction and alignment diagnostics · {{ analysis.warnings | length }} recorded</summary><p>Includes extraction omissions and alignment limitations. Unsupported numeric facts are not used in automatic calculations; inspect these diagnostics and the original filings before drawing conclusions.</p><ul>{% for warning in analysis.warnings %}<li>{{ warning }}</li>{% endfor %}</ul></details>{% endif %}
+{% for lane in company.lanes %}
+{% set lane_id = company.id ~ '-' ~ lane.key %}
+<section class="lane" data-lane="{{ lane.key }}" aria-labelledby="{{ lane_id }}-heading">
+<h3 class="lane-heading" id="{{ lane_id }}-heading">{{ lane.title }}</h3>
+{% if lane.key == 'review' %}<p class="notice">Review is not a supported business-change claim or an impact band. Potential importance remains uncertain; missing assessments are explicitly unavailable. Inspect comparability, counterparts and every member judgment.</p>{% endif %}
+<div class="controls">
+<div class="control"><label for="{{ lane_id }}-sort">Sort included groups in this lane</label><select id="{{ lane_id }}-sort" data-control="sort"><option value="rank">Persisted rank (first to last)</option><option value="impact">Recorded impact (high to low, not reliability)</option><option value="cosine">Cosine (lowest first)</option><option value="economic">Economic relevance (highest first)</option></select></div>
+<div class="control"><label for="{{ lane_id }}-section">Section</label><select id="{{ lane_id }}-section" data-control="section"><option value="">All sections</option>{% for section in lane.sections %}<option value="{{ section }}">{{ section }}</option>{% endfor %}</select></div>
+<div class="control"><label for="{{ lane_id }}-relation">Relation</label><select id="{{ lane_id }}-relation" data-control="relation"><option value="">All relations</option><option value="matched">Matched</option><option value="added">Unmatched current</option><option value="deleted">Unmatched previous</option></select></div>
+<div class="control"><label for="{{ lane_id }}-domain">Historical risk domain</label><select id="{{ lane_id }}-domain" data-control="domain"><option value="">All domains</option>{% for key, name in lane.domains %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></div>
+<div class="control"><label for="{{ lane_id }}-alignment">Alignment status</label><select id="{{ lane_id }}-alignment" data-control="alignment"><option value="">All alignment statuses</option><option value="review">Needs review</option><option value="aligned">Aligned</option><option value="unmatched">Unmatched</option><option value="unavailable">Unavailable (historical)</option></select></div>
+{% for filter in lane.category_filters %}
+<div class="control"><label for="{{ lane_id }}-{{ filter.key }}">{{ filter.name }}</label><select id="{{ lane_id }}-{{ filter.key }}" data-control="{{ filter.key }}"><option value="">All {{ filter.name | lower }} categories</option>{% for choice in filter.choices %}<option value="{{ choice }}">{{ choice | label }}</option>{% endfor %}</select></div>
+{% endfor %}
+</div>
+<p class="small" role="status" aria-live="polite"><span data-visible-count>{{ lane.deltas | length }}</span> visible / {{ lane.deltas | length }} included / {{ lane.total_groups }} full-set groups in this lane; {{ lane.included_passages }} included / {{ lane.candidate_passages }} full-set candidate passages. Sort keys use the lead passage, except persisted rank uses the group's earliest original rank. Full comparison counts are unchanged by filters.</p>
+<noscript><p class="notice">JavaScript is disabled. All included deltas remain readable; interactive sorting and filtering are unavailable.</p></noscript>
+<div data-delta-list>
+{% for row in lane.deltas %}
+{% set delta = row.delta %}{% set pair = delta.pair %}
+<article class="delta" data-rank="{{ row.rank }}" data-cosine="{{ pair.cosine_similarity if pair.cosine_similarity is not none else '' }}" data-economic="{{ row.economic if row.economic is not none else '' }}" data-relation="{{ pair.relation }}" data-alignment="{{ row.alignment_status }}" data-sections="{{ row.sections_json }}" data-domains="{{ row.domains_json }}" data-members="{{ row.member_filters_json }}" data-group-reliability="{{ row.group_reliability }}"{% for key, value in row.categories.items() %} data-{{ key }}="{{ value }}"{% endfor %}>
+{% if row.members | length > 1 %}
+<div class="group-summary"><strong>{{ row.members | length }} source passages · Group comparison: {{ row.group_reliability | label }} · Selection priority: {{ row.group_priority | label }}</strong>
+<p>Repeated evidence, not a combined judgment. Any adverse, uncertain or missing member remains relevant. The lead below is passage #{{ row.lead.rank }}.</p>
+<ul>{% for member in row.members %}<li>Passage #{{ member.rank }} · Impact {{ member.categories.impact_band | label }} · Direction {{ member.categories.business_direction | label }} · Reliability {{ member.categories.comparison_reliability | label }} · Priority {{ member.priority | label }}</li>{% endfor %}</ul></div>
+{% endif %}
+{{ passage(row.lead, analysis) }}
+{% if row.others %}<details class="group-members"><summary>Other source passages and independent judgments · {{ row.others | length }}</summary>{% for member in row.others %}<section class="group-member">{{ passage(member, analysis) }}</section>{% endfor %}</details>{% endif %}
 </article>
 {% endfor %}
 </div>
-<p class="empty" data-no-results {% if company.deltas %}hidden{% endif %}>{% if company.deltas %}No included deltas match these filters.{% else %}No non-skipped deltas are available for this comparison.{% endif %}</p>
+<p class="empty" data-no-results {% if lane.deltas %}hidden{% endif %}>{% if lane.deltas %}No included groups match these filters.{% else %}No groups from this lane are included in the reading budget. Full-set lane counts are shown above.{% endif %}</p>
+</section>
+{% endfor %}
 </section>
 {% endfor %}
 <footer>Filing Delta Radar · Read the original filings before drawing conclusions. This report makes no investment recommendations.</footer>
 </main>
 <script>
 'use strict';
-for (const company of document.querySelectorAll('.company')) {
-  const list = company.querySelector('[data-delta-list]');
+for (const lane of document.querySelectorAll('.lane')) {
+  const list = lane.querySelector('[data-delta-list]');
   const cards = Array.from(list.children);
-  const controls = Object.fromEntries(Array.from(company.querySelectorAll('[data-control]'), element => [element.dataset.control, element]));
-  const records = cards.map(card => ({card, sections: JSON.parse(card.dataset.sections), domains: JSON.parse(card.dataset.domains)}));
+  const controls = Object.fromEntries(Array.from(lane.querySelectorAll('[data-control]'), element => [element.dataset.control, element]));
+  const records = cards.map(card => ({card, members: JSON.parse(card.dataset.members)}));
   const number = (card, key, absent) => card.dataset[key] === '' ? absent : Number(card.dataset[key]);
+  const categoryKeys = ['business_subject', 'change_nature', 'impact_band', 'business_direction', 'comparison_reliability'];
+  const impactOrder = {high: 0, medium: 1, low: 2, unclear: 3, unavailable: 4};
   const update = () => {
     const sort = controls.sort.value;
     records.sort((a, b) => {
       let difference = 0;
       if (sort === 'cosine') difference = number(a.card, 'cosine', Infinity) - number(b.card, 'cosine', Infinity);
       if (sort === 'economic') difference = number(b.card, 'economic', -Infinity) - number(a.card, 'economic', -Infinity);
+      if (sort === 'impact') difference = impactOrder[a.card.dataset.impact_band] - impactOrder[b.card.dataset.impact_band];
       return difference || Number(a.card.dataset.rank) - Number(b.card.dataset.rank);
     });
     let visible = 0;
     for (const record of records) {
-      const show = (!controls.section.value || record.sections.includes(controls.section.value))
-        && (!controls.relation.value || record.card.dataset.relation === controls.relation.value)
-        && (!controls.domain.value || record.domains.includes(controls.domain.value))
-        && (!controls.alignment.value || record.card.dataset.alignment === controls.alignment.value);
+      const show = record.members.some(member =>
+        (!controls.section.value || member.section.includes(controls.section.value))
+        && (!controls.relation.value || member.relation === controls.relation.value)
+        && (!controls.domain.value || member.domain.includes(controls.domain.value))
+        && (!controls.alignment.value || member.alignment === controls.alignment.value)
+        && categoryKeys.every(key => !controls[key].value || member[key] === controls[key].value));
       record.card.hidden = !show;
       visible += Number(show);
       list.append(record.card);
     }
-    company.querySelector('[data-visible-count]').textContent = String(visible);
-    company.querySelector('[data-no-results]').hidden = visible !== 0;
+    lane.querySelector('[data-visible-count]').textContent = String(visible);
+    lane.querySelector('[data-no-results]').hidden = visible !== 0;
   };
   for (const control of Object.values(controls)) control.addEventListener('change', update);
 }

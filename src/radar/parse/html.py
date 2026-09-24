@@ -2,7 +2,7 @@
 
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import takewhile
 
 from bs4 import BeautifulSoup, Comment, NavigableString, Tag
@@ -60,6 +60,8 @@ class TextBlock:
     text: str
     heading: bool = False
     linked: bool = False
+    fact_nodes: tuple[Tag, ...] = field(default=(), repr=False, compare=False)
+    table: Tag | None = field(default=None, repr=False, compare=False)
 
 
 def _text(tag: Tag) -> str:
@@ -69,14 +71,25 @@ def _text(tag: Tag) -> str:
 def _numeric_table(table: Tag) -> bool:
     # A table used for page layout must not swallow its narrative cells.
     cells = [cell for cell in table.find_all(["td", "th"]) if cell.find_parent("table") is table]
+    data_cells = [cell for cell in cells if cell.name == "td"]
+    cells = data_cells or cells
     values = [value for cell in cells if (value := _text(cell))]
-    if len(values) < 4:
+    if not values:
         return False
     numeric = sum(
-        bool(re.search(r"\d", value)) and sum(character.isalpha() for character in value) <= 4
-        for value in values
+        (bool(re.search(r"\d", value)) and sum(character.isalpha() for character in value) <= 4)
+        or any(
+            value.strip("$€£¥()% \u00a0") == _text(fact) for fact in cell.find_all("ix:nonfraction")
+        )
+        for cell in cells
+        if (value := _text(cell))
     )
-    return numeric / len(values) >= 0.5
+    # Currency/parenthesis spacer cells must not dilute a financial schedule.
+    substantive = [value for value in values if not re.fullmatch(r"[$€£¥()%—–−-]+", value)]
+    tagged = sum(cell.find("ix:nonfraction") is not None for cell in cells)
+    return bool(substantive) and (
+        numeric / len(substantive) >= 0.5 or (tagged >= 2 and numeric / len(substantive) >= 0.3)
+    )
 
 
 def _toc_table(table: Tag) -> bool:
@@ -91,7 +104,11 @@ def _toc_table(table: Tag) -> bool:
 def clean_html(html: str | bytes) -> BeautifulSoup:
     """Remove identifiable non-visible content from an in-memory copy only."""
     soup = BeautifulSoup(html, "lxml")
-    # Honor simple stylesheet visibility rules as well as inline attributes.
+    return _clean_visible(soup)
+
+
+def _clean_visible(soup: BeautifulSoup) -> BeautifulSoup:
+    """Retain visible tables/facts; callers separately select narrative or evidence."""
     hidden_selectors: list[str] = []
     for style in soup.find_all("style"):
         for selectors, declarations in re.findall(r"([^{}]+)\{([^{}]*)\}", style.get_text()):
@@ -136,12 +153,14 @@ def clean_html(html: str | bytes) -> BeautifulSoup:
         if metadata or hidden or chrome:
             tag.decompose()
     _join_page_continuations(soup)
+    return soup
+
+
+def narrative_html(html: str | bytes) -> BeautifulSoup:
+    """Exclude numeric schedules from the narrative alignment stream."""
+    soup = clean_html(html)
     for table in list(soup.find_all("table")):
-        if (
-            table.name is not None
-            and table.attrs is not None
-            and (_toc_table(table) or _numeric_table(table))
-        ):
+        if table.name is not None and (_toc_table(table) or _numeric_table(table)):
             table.decompose()
     return soup
 
@@ -160,8 +179,37 @@ def _heading_style(tag: Tag) -> bool:
     )
 
 
+def _edge_paragraph(container: Tag, *, last: bool) -> Tag | None:
+    """Find the literal page-content edge, never skip intervening visible content."""
+    node = container
+    while True:
+        if node.name in {"p", "div"} and node.find(_BLOCK_TAGS) is None:
+            return node
+        if node.name not in {"div", "ix:nonnumeric", "ix:continuation"}:
+            return None
+        children = [child for child in node.children if isinstance(child, Tag) or child.strip()]
+        if not children:
+            return None
+        edge = children[-1 if last else 0]
+        if not isinstance(edge, Tag):
+            return None
+        node = edge
+
+
+def _same_typography(previous: Tag, current: Tag) -> bool:
+    def typography(tag: Tag) -> dict[str, str]:
+        return {
+            key.strip().casefold(): value.strip().casefold()
+            for key, value in re.findall(r"([^:;]+):([^;]+)", str(tag.get("style", "")))
+            if key.strip().casefold() in {"font-family", "font-size", "text-align"}
+        }
+
+    before, after = typography(previous), typography(current)
+    return all(before[key] == after[key] for key in before.keys() & after.keys())
+
+
 def _join_page_continuations(soup: BeautifulSoup) -> None:
-    """Reunite a split sentence only across an explicit footer/break/TOC header."""
+    """Reunite unfinished prose across explicit numbered footer/page/header furniture."""
     for rule in soup.find_all("hr"):
         if not re.search(
             r"(?:^|;)\s*page-break-after\s*:\s*always\s*(?:;|$)",
@@ -175,20 +223,33 @@ def _join_page_continuations(soup: BeautifulSoup) -> None:
             continue
         if footer.name != "div" or not re.fullmatch(r"\d+", _text(footer)):
             continue
-        if header.name != "div" or _text(header).casefold() != "table of contents":
+        if header.name != "div":
             continue
+        header_text = _text(header)
         links = header.find_all("a", href=True)
-        if len(links) != 1 or not str(links[0]["href"]).startswith("#"):
+        toc_header = (
+            header_text.casefold() == "table of contents"
+            and len(links) == 1
+            and str(links[0]["href"]).startswith("#")
+        )
+        blank_page_header = not header_text and bool(
+            re.search(r"(?:^|;)\s*(?:padding-top|min-height)\s*:", str(header.get("style", "")))
+        )
+        if not (toc_header or blank_page_header):
             continue
-        previous = footer.find_previous_sibling()
-        current = header.find_next_sibling()
+        previous_container = footer.find_previous_sibling()
+        current_container = header.find_next_sibling()
+        if previous_container is None or current_container is None:
+            continue
+        previous = _edge_paragraph(previous_container, last=True)
+        current = _edge_paragraph(current_container, last=False)
         if previous is None or current is None:
             continue
         if (
-            previous.name not in {"div", "p"}
-            or current.name != previous.name
-            or previous.get("style", "") != current.get("style", "")
+            current.name != previous.name
+            or not _same_typography(previous, current)
             or previous.find_parent("table") is not None
+            or current.find_parent("table") is not None
             or previous.find(_BLOCK_TAGS) is not None
             or current.find(_BLOCK_TAGS) is not None
             or _heading_style(previous)
@@ -196,7 +257,7 @@ def _join_page_continuations(soup: BeautifulSoup) -> None:
         ):
             continue
         # Do not skip meaningful sibling text, even in malformed HTML.
-        run = (previous, footer, rule, header, current)
+        run = (previous_container, footer, rule, header, current_container)
         if any(
             isinstance(node, NavigableString) and node.strip()
             for left, right in zip(run, run[1:])
@@ -219,19 +280,23 @@ def _join_page_continuations(soup: BeautifulSoup) -> None:
         current.decompose()
 
 
-def text_blocks(soup: BeautifulSoup) -> Iterator[TextBlock]:
+def text_blocks(soup: BeautifulSoup, *, include_tables: bool = False) -> Iterator[TextBlock]:
     """Traverse every text node once; never emit both a container and its child."""
 
     def walk(tag: Tag) -> Iterator[TextBlock]:
         buffer: list[str] = []
         linked = False
+        fact_nodes: list[Tag] = []
 
         def flush() -> TextBlock | None:
             nonlocal linked
             value = _SPACE.sub(" ", "".join(buffer)).strip()
-            block = TextBlock(value, _heading_style(tag), linked) if value else None
+            block = (
+                TextBlock(value, _heading_style(tag), linked, tuple(fact_nodes)) if value else None
+            )
             buffer.clear()
             linked = False
+            fact_nodes.clear()
             return block
 
         def visit(node: Tag | NavigableString) -> Iterator[TextBlock]:
@@ -248,13 +313,25 @@ def text_blocks(soup: BeautifulSoup) -> Iterator[TextBlock]:
                         yield block
                 else:
                     buffer.append(" ")
+            elif (
+                node.name == "table"
+                and include_tables
+                and (_numeric_table(node) or _toc_table(node))
+            ):
+                block = flush()
+                if block:
+                    yield block
+                if not _toc_table(node):
+                    yield TextBlock("", table=node)
             elif node.name in _BLOCK_TAGS:
                 block = flush()
                 if block:
                     yield block
                 yield from walk(node)
             else:
-                if node.name == "a" and str(node.get("href", "")).startswith("#"):
+                if node.name == "ix:nonfraction":
+                    fact_nodes.append(node)
+                if node.name == "a" and str(node.get("href", "")).startswith("#") and _text(node):
                     linked = True
                 for child in node.children:
                     yield from visit(child)

@@ -9,8 +9,10 @@ from urllib.parse import urlsplit
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 from markupsafe import Markup
 
+from radar.jev.questions import BUSINESS_QUESTIONS, QUESTION_SCHEMA_VERSION
 from radar.match.lexical import word_diff
 from radar.models import AnalysisRun, RankedDelta
+from radar.report.selection import REPORT_SELECTION_POLICY, EvidenceGroup, build_report_selection
 
 _DOMAINS = (
     "liquidity_or_financing",
@@ -90,7 +92,7 @@ def _delta_view(delta: RankedDelta, rank: int) -> dict:
         if alignment.status in {"exact", "cosmetic"}
         else alignment.status
     )
-    values = delta.signals.model_dump() if delta.signals is not None else {}
+    values = delta.signals.model_dump(exclude={"assessment"}) if delta.signals is not None else {}
     directions = []
     domains = []
     for domain in _DOMAINS:
@@ -104,8 +106,49 @@ def _delta_view(delta: RankedDelta, rank: int) -> dict:
     scalar_signals = [
         {"name": _label(name), "value": value}
         for name, value in values.items()
-        if name != "question_schema_version" and not name.endswith(("_direction", "_probabilities"))
+        if name not in {"question_schema_version", "assessment"}
+        and not name.endswith(("_direction", "_probabilities"))
     ]
+    assessment = delta.signals.assessment if delta.signals else None
+    dimensions = []
+    if assessment is not None:
+        schema = delta.signals.question_schema_version
+        unavailable = f"Criterion unavailable for recorded schema {schema}."
+        for name, question in BUSINESS_QUESTIONS.items():
+            judgment = getattr(assessment, name)
+            criteria = question["criteria"] if schema == QUESTION_SCHEMA_VERSION else {}
+            dimensions.append(
+                {
+                    "key": name,
+                    "name": _label(name),
+                    "choice": judgment.choice,
+                    "criterion": criteria.get(
+                        judgment.choice,
+                        unavailable,
+                    ),
+                    "distribution": [
+                        {
+                            "choice": choice,
+                            "probability": probability,
+                            "criterion": criteria.get(
+                                choice,
+                                unavailable,
+                            ),
+                        }
+                        for choice, probability in judgment.probabilities.items()
+                    ],
+                }
+            )
+    categories = {
+        name: getattr(assessment, name).choice if assessment else "unavailable"
+        for name in ("business_subject", "change_nature", "business_direction")
+    }
+    categories.update(
+        impact_band=(delta.impact_band or "unavailable") if assessment else "unavailable",
+        comparison_reliability=(delta.comparison_reliability or "unavailable")
+        if assessment
+        else "unavailable",
+    )
     return {
         "delta": delta,
         "rank": rank,
@@ -116,6 +159,9 @@ def _delta_view(delta: RankedDelta, rank: int) -> dict:
         "domains_json": json.dumps([domain["key"] for domain in domains]),
         "directions": directions,
         "scalar_signals": scalar_signals,
+        "categories": categories,
+        "dimensions": dimensions,
+        "priority": (delta.priority_band or "unavailable") if assessment else "unavailable",
         "alignment_status": alignment_status,
         "alignment_label": (
             _ALIGNMENT_STATUSES[alignment.status] if alignment else "Unavailable (historical)"
@@ -131,29 +177,119 @@ def _delta_view(delta: RankedDelta, rank: int) -> dict:
     }
 
 
+def _group_view(group: EvidenceGroup) -> dict:
+    members = [_delta_view(delta, rank) for rank, delta in group.members]
+    lead_rank, _ = group.leader
+    lead = next(member for member in members if member["rank"] == lead_rank)
+    filters = [
+        {
+            **member["categories"],
+            "section": member["sections"],
+            "domain": [domain["key"] for domain in member["domains"]],
+            "relation": member["delta"].pair.relation,
+            "alignment": member["alignment_status"],
+        }
+        for member in members
+    ]
+    return {
+        **lead,
+        "rank": group.source_rank,
+        "lead": lead,
+        "members": members,
+        "others": [member for member in members if member is not lead],
+        "group_priority": group.priority,
+        "lane": group.lane,
+        "group_reliability": (
+            "supported"
+            if group.priority in {"high", "medium", "low"}
+            else "unavailable"
+            if group.priority == "unavailable"
+            else "needs_review"
+        ),
+        "member_filters_json": json.dumps(filters, ensure_ascii=False),
+    }
+
+
+def _lane_view(key: str, title: str, groups: list[EvidenceGroup], selected: list[dict]) -> dict:
+    members = [member for group in selected for member in group["members"]]
+    return {
+        "key": key,
+        "title": title,
+        "deltas": selected,
+        "total_groups": len(groups),
+        "candidate_passages": sum(len(group.members) for group in groups),
+        "included_passages": len(members),
+        "category_filters": [
+            {
+                "key": name,
+                "name": _label(name),
+                "choices": sorted({member["categories"][name] for member in members}),
+            }
+            for name in (
+                "business_subject",
+                "change_nature",
+                "impact_band",
+                "business_direction",
+                "comparison_reliability",
+            )
+        ],
+        "sections": sorted({section for member in members for section in member["sections"]}),
+        "domains": sorted(
+            {(domain["key"], domain["name"]) for member in members for domain in member["domains"]}
+        ),
+    }
+
+
 def render_report(run: AnalysisRun, output: Path, top_n: int = 20) -> Path:
-    """Atomically write a self-contained report; preserve pipeline ranking and counts."""
+    """Atomically render persisted evidence with one bounded card budget per company."""
     if top_n < 1:
         raise ValueError("top_n must be positive")
     output = Path(output)
     companies = []
+    historical = not any(
+        delta.comparison_evidence is not None or (delta.signals and delta.signals.assessment)
+        for company in run.companies
+        for delta in company.deltas
+    )
     for index, company in enumerate(run.companies):
         eligible = [delta for delta in company.deltas if delta.pair.skip_reason is None]
-        deltas = [_delta_view(delta, rank) for rank, delta in enumerate(eligible[:top_n], 1)]
+        selection = build_report_selection(company.deltas, top_n, historical)
+        groups, selected = selection.groups, selection.selected
+        deltas = [_group_view(group) for group in selected]
+        if historical:
+            lanes = [_lane_view("historical", "Historical persisted ranking", groups, deltas)]
+        else:
+            lanes = [
+                _lane_view(
+                    key,
+                    title,
+                    [group for group in groups if group.lane == key],
+                    [row for row in deltas if row["lane"] == key],
+                )
+                for key, title in (
+                    ("supported", "Supported business changes"),
+                    ("review", "Potentially important disclosures requiring comparison review"),
+                )
+            ]
+        priority_counts = dict.fromkeys(("high", "medium", "low", "review", "unavailable"), 0)
+        for delta in eligible:
+            priority_counts[delta.priority_band or "unavailable"] += 1
         companies.append(
             {
                 "id": f"company-{index}",
                 "analysis": company,
                 "deltas": deltas,
+                "historical": historical,
+                "lanes": lanes,
+                "groups": len(groups),
+                "included_passages": sum(len(group.members) for group in selected),
+                "omitted_groups": len(groups) - len(selected),
+                "reservation": max(1, top_n // 4),
                 "eligible": len(eligible),
                 "skipped": len(company.deltas) - len(eligible),
-                "sections": sorted({section for delta in deltas for section in delta["sections"]}),
-                "domains": sorted(
-                    {
-                        (domain["key"], domain["name"])
-                        for delta in deltas
-                        for domain in delta["domains"]
-                    }
+                "priority_counts": priority_counts,
+                "review_selected": sum(
+                    group.priority in {"review", "unavailable"} for group in selected
                 ),
             }
         )
@@ -167,6 +303,7 @@ def render_report(run: AnalysisRun, output: Path, top_n: int = 20) -> Path:
         run=run,
         companies=companies,
         top_n=top_n,
+        selection_policy=REPORT_SELECTION_POLICY,
         provider=run.settings.get("jev_provider") or "Unavailable / not recorded",
         provider_model=run.settings.get("jev_model") or "Not recorded",
     )

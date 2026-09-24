@@ -109,6 +109,20 @@ def test_part_item_and_subheading_boundaries_exclude_toc_and_financial_tables():
     }
 
 
+def test_empty_destination_anchor_does_not_hide_actual_item_boundary():
+    # NPK uses <a href="#" id="mda"></a> before the actual MD&A heading.
+    html = (
+        '<p><a href="#mda">Item 2. Management discussion</a></p>'
+        "<h2>Item 1. Financial Statements</h2>"
+        "<p>Our interim financial statements include the accompanying notes.</p>"
+        '<p><a href="#" id="mda"></a>ITEM 2. MANAGEMENT DISCUSSION</p>'
+        "<p>Operating margins improved following the production expansion.</p>"
+    )
+    paragraphs = extract_paragraphs(html, "anchor-fixture")
+    assert [paragraph.item for paragraph in paragraphs] == ["Item 1", "Item 2"]
+    assert paragraphs[1].text == ("Operating margins improved following the production expansion.")
+
+
 def test_unicode_equivalence_has_stable_hashes_but_preserves_original_text():
     html = (FIXTURES / "synthetic_unicode.html").read_text(encoding="utf-8")
     paragraphs = extract_paragraphs(html, "first")
@@ -257,3 +271,101 @@ def test_page_recovery_does_not_cross_paragraph_heading_or_table_boundaries(
     assert [paragraph.text for paragraph in paragraphs] == [before, after]
     assert paragraphs[0].section == "Revenue"
     assert paragraphs[1].section == ending_section
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "inline_wrappers"),
+    [
+        (
+            "We operate principally through our subsidiaries. "
+            "ASP Isotopes UK Ltd is the owner of our",
+            "technology.",
+            False,
+        ),
+        (
+            "The Company had noncurrent restricted cash related to Renergen's obligation to manage"
+            " the negative environmental impact associated",
+            "with its operational activities and $0.5 million related to electricity payments and"
+            " early termination guaranties with a public utility company.",
+            True,
+        ),
+    ],
+)
+def test_source_wrapped_page_edges_reunite_short_and_xbrl_continuations(
+    before, after, inline_wrappers
+):
+    # The current ASPI 2026-06-30 source has these numbered-footer/blank-header
+    # boundaries at pages 37/38 and 12/13. Paragraph indentation and top margins
+    # differ across the break; the restricted-cash policy has XBRL wrappers too.
+    # Source: sec.gov/Archives/edgar/data/1921865/000119312526352603/aspi-20260630.htm
+    previous = (
+        '<p style="text-indent:4.533%;font-size:10pt;margin-top:0;'
+        f'font-family:Times New Roman;text-align:justify;">{before}</p>'
+    )
+    current = (
+        '<p style="font-size:10pt;margin-top:6pt;font-family:Times New Roman;'
+        f'text-align:justify;">{after}</p>'
+    )
+    if inline_wrappers:
+        previous = (
+            '<ix:continuation><div><ix:nonNumeric continuedAt="policy-tail">'
+            f"{previous}</ix:nonNumeric></div></ix:continuation>"
+        )
+        current = (
+            '<div><ix:continuation><div><ix:continuation id="policy-tail">'
+            f"{current}</ix:continuation></div></ix:continuation></div>"
+        )
+    html = (
+        "<h2>Item 2. Management discussion</h2>"
+        f'<div class="main-content-container">{previous}</div>'
+        '<div style="min-height:0.5in;justify-content:flex-end"><p>12</p></div>'
+        '<hr style="page-break-after:always"/>'
+        '<div style="padding-top:0.5in;min-height:0.5in"><p><span>&nbsp;</span></p></div>'
+        f'<div class="main-content-container">{current}'
+        "<h2>Separate disclosure</h2>"
+        "<p>Other operations remain a separate disclosure after the continuation.</p></div>"
+    )
+    paragraphs = extract_paragraphs(html, "page-wrappers")
+    assert [paragraph.text for paragraph in paragraphs] == [
+        before + " " + after,
+        "Other operations remain a separate disclosure after the continuation.",
+    ]
+    assert paragraphs[0].item == paragraphs[1].item == "Item 2"
+    assert paragraphs[0].section != paragraphs[1].section
+
+
+@pytest.mark.parametrize(
+    ("before", "prefix", "style"),
+    [
+        (
+            "Our production operations remain subject to extensive regulations.",
+            "",
+            "font-size:10pt",
+        ),
+        (
+            "Our production operations remain subject to extensive regulations",
+            "<h2>Liquidity</h2>",
+            "font-size:10pt",
+        ),
+        (
+            "Our production operations remain subject to extensive regulations",
+            "<table><tr><td>2026</td><td>2025</td></tr><tr><td>100</td><td>90</td></tr></table>",
+            "font-size:10pt",
+        ),
+        ("Our production operations remain subject to extensive regulations", "", "font-size:14pt"),
+    ],
+)
+def test_wrapped_page_recovery_preserves_completed_heading_table_and_typography_boundaries(
+    before, prefix, style
+):
+    after = "and this independent disclosure must not be swallowed by the previous paragraph."
+    html = (
+        f'<div><p style="font-size:10pt">{before}</p></div>'
+        '<div><p>12</p></div><hr style="page-break-after:always"/>'
+        '<div style="min-height:0.5in"><p>&nbsp;</p></div>'
+        f'<div>{prefix}<p style="{style}">{after}</p></div>'
+    )
+    assert [paragraph.text for paragraph in extract_paragraphs(html, "boundaries")] == [
+        before,
+        after,
+    ]

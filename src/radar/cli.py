@@ -55,7 +55,7 @@ def analyze(
     config: Annotated[Path | None, typer.Option(help="Settings TOML file.")] = None,
     output: Annotated[Path | None, typer.Option(help="Output HTML path.")] = None,
 ):
-    """Analyze filing pairs, persist all signals, and write one self-contained report."""
+    """Categorize filing changes, assess business impact, and write a review report."""
     from radar.pipeline import analyze_tickers, write_report
 
     settings = load_settings(config)
@@ -77,6 +77,17 @@ def analyze(
             f"{company.counts['matched_changes']} matched changes, "
             f"{company.counts['additions']} unmatched current, "
             f"{company.counts['deletions']} unmatched previous passages"
+        )
+        priorities = {
+            band: sum(
+                delta.priority_band == band and delta.pair.skip_reason is None
+                for delta in company.deltas
+            )
+            for band in ("high", "medium", "low", "review", "unavailable")
+        }
+        typer.echo(
+            "  Business-impact priority: "
+            + ", ".join(f"{band}={count}" for band, count in priorities.items())
         )
     for ticker, error in run.errors.items():
         typer.echo(f"{ticker}: {error}", err=True)
@@ -118,7 +129,7 @@ def report(
     config: Path | None = None,
     output: Path | None = None,
 ):
-    """Rerank and render persisted results with current weights, without any provider calls."""
+    """Render saved assessments offline; weights break impact-band ties in new runs."""
     from radar.db import Database
     from radar.pipeline import rerank_run, write_report
 

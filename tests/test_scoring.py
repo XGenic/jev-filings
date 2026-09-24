@@ -1,8 +1,15 @@
 import pytest
 
 from radar.config import RankWeights
-from radar.jev.score import rank_pair
-from radar.models import AlignedPair, FilingParagraph, JevSemanticSignals
+from radar.jev.questions import BUSINESS_QUESTIONS
+from radar.jev.score import rank_pair, ranking_key
+from radar.models import (
+    AlignedPair,
+    AlignmentEvidence,
+    BusinessAssessment,
+    FilingParagraph,
+    JevSemanticSignals,
+)
 
 
 def pair(relation="matched"):
@@ -72,3 +79,96 @@ def test_section_priority_distinguishes_annual_business_from_quarterly_statement
     assert (
         rank_pair(disclosure, None, RankWeights(), form="10-K").components["section_boost"] == 0.03
     )
+
+
+def impact_signals(**choices):
+    selected = dict.fromkeys(BUSINESS_QUESTIONS, "unclear")
+    selected.update(comparison_validity="comparable", business_impact="high")
+    selected.update(choices)
+    return JevSemanticSignals(
+        question_schema_version="filing-delta-2",
+        assessment=BusinessAssessment.model_validate(
+            {
+                name: {
+                    "choice": choice,
+                    "probabilities": {
+                        label: float(label == choice)
+                        for label in BUSINESS_QUESTIONS[name]["criteria"]
+                    },
+                }
+                for name, choice in selected.items()
+            }
+        ),
+    )
+
+
+def test_impact_priority_is_direction_neutral_and_precedes_drift():
+    comparable = pair()
+    comparable.alignment = AlignmentEvidence(status="aligned")
+    adverse = rank_pair(comparable, impact_signals(business_direction="negative"), RankWeights())
+    favorable = rank_pair(comparable, impact_signals(business_direction="positive"), RankWeights())
+    routine = rank_pair(
+        comparable,
+        impact_signals(business_impact="low", change_nature="routine_update"),
+        RankWeights(embedding_drift=100),
+    )
+    assert adverse.impact_band == favorable.impact_band == "high"
+    assert adverse.priority_band == favorable.priority_band == "high"
+    assert ranking_key(adverse) == ranking_key(favorable)
+    assert routine.score > adverse.score
+    assert sorted([routine, adverse], key=ranking_key) == [adverse, routine]
+
+
+@pytest.mark.parametrize(
+    ("relation", "alignment", "validity", "expected"),
+    [
+        ("matched", AlignmentEvidence(status="aligned"), "comparable", "supported"),
+        ("matched", AlignmentEvidence(status="review"), "comparable", "needs_review"),
+        ("matched", AlignmentEvidence(status="aligned"), "not_comparable", "needs_review"),
+        ("matched", AlignmentEvidence(status="aligned"), "unclear", "needs_review"),
+        ("matched", None, "comparable", "unavailable"),
+        ("added", AlignmentEvidence(status="unmatched"), "comparable", "unmatched"),
+        ("deleted", AlignmentEvidence(status="unmatched"), "comparable", "unmatched"),
+    ],
+)
+def test_high_impact_does_not_establish_comparison_validity(
+    relation, alignment, validity, expected
+):
+    disclosure = pair(relation)
+    disclosure.alignment = alignment
+    ranked = rank_pair(disclosure, impact_signals(comparison_validity=validity), RankWeights())
+    assert ranked.impact_band == "high"
+    assert ranked.comparison_reliability == expected
+    assert ranked.priority_band == ("high" if expected == "supported" else "review")
+
+
+def test_weak_or_missing_assessments_never_become_definite_impact():
+    disclosure = pair()
+    disclosure.alignment = AlignmentEvidence(status="aligned")
+    signals = impact_signals()
+    signals.assessment.business_impact.probabilities = {
+        "high": 0.599,
+        "medium": 0.201,
+        "low": 0.1,
+        "unclear": 0.1,
+    }
+    ranked = rank_pair(disclosure, signals, RankWeights())
+    assert ranked.impact_band == "unclear"
+    assert ranked.priority_band == "review"
+    signals.assessment.business_impact.probabilities = {
+        "high": 0.6,
+        "medium": 0.2,
+        "low": 0.1,
+        "unclear": 0.1,
+    }
+    assert rank_pair(disclosure, signals, RankWeights()).priority_band == "high"
+    signals.assessment.comparison_validity.probabilities = {
+        "comparable": 0.59,
+        "not_comparable": 0.21,
+        "unclear": 0.2,
+    }
+    assert rank_pair(disclosure, signals, RankWeights()).priority_band == "review"
+    for missing in (None, JevSemanticSignals(question_schema_version="filing-delta-1")):
+        unavailable = rank_pair(disclosure, missing, RankWeights())
+        assert unavailable.impact_band is None
+        assert unavailable.priority_band == "unavailable"

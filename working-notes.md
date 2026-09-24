@@ -396,10 +396,261 @@ Results from revised run `20260920T050007-23c12bd0de`:
   This pilot does **not** justify promoting the experimental screen to production
   or claiming early-deal prediction, population precision, recall or investment returns.
 
+## 2026-09-24 (UTC run timestamps)
+
+### Pivoted production analysis to general categorization and business impact
+
+- The user approved moving away from unannounced-deal discovery as the central objective.
+  The product now asks what changed, what kind of business change it is, and how much it
+  could matter. Public novelty is separate; favorable and adverse developments matter.
+- Added the versioned `filing-delta-2` rubric: business subject, change nature, business
+  direction, relative magnitude, duration, timing, evidence strength, comparison validity
+  and high/medium/low/unclear impact. Active risk-specific questions were replaced;
+  historical fields remain readable without invented new assessments.
+- Added adjacent previous/current source context to evaluation and persistence. Context
+  participates in cache identity and is validated against filing sides. It is not a
+  complete-filing search, and missing company-scale evidence stays explicit.
+- Added `business-impact-1` ranking: supported high/medium/low assessments precede review
+  and unavailable candidates; impact and then existing weighted scores break ties.
+  Definite impact/comparability decisions require a 0.60 selected-label probability.
+  This is an uncalibrated decision rule, not financial-outcome confidence.
+- Unmatched or questionable comparisons do not become supported changes merely because
+  their disclosed subject is important. Impact, direction and comparison reliability
+  remain separate. Explanations reproduce selected rubric criteria, not generated reasoning.
+- Reports expose the new categories, impact and reliability filters, impact sorting,
+  expandable distributions and surrounding source passages. Historical dimensions are
+  explicitly unavailable. Full-set priority/review counts remain visible when `top_n`
+  excludes candidates; filtering and sorting operate on included cards only.
+- Existing production commands now use the new rubric on new analyses. Offline `radar report`
+  does not upgrade historical judgments. Frozen benchmarks and research workflows were
+  not rewritten; the new categorization/impact rubric has no independent quality benchmark.
+
+### Fixed two concrete NPK comparison defects
+
+- Empty destination anchors no longer mark real Item headings as navigation, correcting
+  NPK MD&A attribution to Part I / Item 2.
+- Reporting-scope extraction now recognizes plural `quarters`, preventing a quarterly
+  income-tax disclosure from accepting the six-month counterpart. The real-source run
+  matched the quarterly passages and preserved the current raw filing byte-for-byte.
+- Retained boundary regressions for both defects; these are not universal parser fixes.
+
+### Exercised the new production path
+
+- Final live NPK run: `20260924T024532-36a42abd00`.
+  Same filing pair as the earlier cohort, using cached SEC filings and live Jev:
+  34 matched changes, 21 unmatched current and seven unmatched previous passages.
+- All **62 assessments** validated. Twelve initial responses failed strict probability/
+  selected-choice validation; one still failed on the first cache-based retry. The next
+  retry completed it. Validation was not relaxed and invalid responses were not cached
+  as successful judgments.
+- Saved `data/reports/business-impact-npk.html` with all 62 eligible cards, using
+  `top_n=500` for this review. Impact counts: five medium, 34 low and 23 unclear.
+  Priority counts: one medium, 15 low and 46 review. These are model judgments, not
+  human-adjudicated quality metrics.
+- Tech Ord's construction commitment is operations/capacity, medium impact and review
+  priority because its passage is unmatched. It appears at rank 20; the classification
+  does not establish public novelty or independently verify the commitment.
+- Replayed all 62 evaluations with semantic calls forbidden: **zero provider calls**.
+  Confirmed unchanged ranking on rerender and preserved context. Credential-free
+  historical report rendering also succeeded; the old four-company ranking was unchanged
+  at unchanged weights.
+- Verified unchanged payload hashes for all seven pre-existing runs and 908 pre-existing
+  semantic-cache records. Frozen research artifacts were not edited.
+- Verification: **187 pytest tests passed**; Ruff lint passed; source distribution and
+  wheel built. Browser exercised all 30 new-filter option selections, empty states,
+  stable impact sorting, independent historical-company controls and expanded dimensions/
+  source context. Desktop and 390px mobile had no horizontal overflow or browser errors.
+- Remaining limits: source extraction/alignment are heuristic, company-relative context
+  can be insufficient, topics can repeat, and the new rubric needs human evaluation.
+  The existing BeautifulSoup XML-as-HTML warning remains unsuppressed.
+
+### Ran five-company reports and blinded source-only assistant judging
+
+- Final production run: `20260924T030625-b5de787e2b`, covering ASPI, CLMT, QURE,
+  AOSL and AIP. All **1,361 eligible assessments** validated: 369 ASPI, 263 CLMT,
+  188 QURE, 330 AOSL and 211 AIP. Production code, rubric and ranking were not
+  changed for this audit.
+- ASPI, CLMT, QURE and AIP compare March 31 with June 30, 2026 10-Qs. AOSL
+  compares June 30, 2025 with June 30, 2026 10-Ks; this is not a uniform quarterly cohort.
+- Initial strict-validation failures numbered 205. Four cache-based retries reduced
+  remaining failures to 50, 11, one and zero; validation was not relaxed.
+- Replayed all 1,361 assessments with provider calls forbidden: **zero calls**.
+  All 2,331 semantic-cache payload hashes were unchanged across that replay.
+  Credential-free `radar report` rendering of the final run also succeeded.
+- Combined report: `data/reports/business-impact-five-company.html`. Individual
+  `business-impact-{aspi,clmt,qure,aosl,aip}.html` reports each contain the top 20.
+- Judge review: `data/reports/five-company-impact-judge-review.html`. Frozen inputs,
+  raw judgments, metrics, verification and delivery hashes are under
+  `data/processed/five-company-impact-review-v1/`.
+- Five parallel fresh-context subagents each assessed 20 leading cards and five
+  deterministically sampled lower-ranked controls: **125 cases**. Packets withheld
+  production labels, scores, ranks, warnings and sample membership. Judges received
+  broader filing context, including flattened tables, than the production evaluator.
+- All 125 outputs passed schema, coverage and source checks without corrections.
+  Independent recomputation verified **31 frozen hashes and 474 evidence quotations**
+  and reproduced every saved metric. Quote provenance does not prove interpretation.
+- Judges marked **49/100 top-20 passages** worth reviewing, in 38 judge-assigned
+  issuer-scoped topic groups: ASPI 6/20, CLMT 13/20, QURE 9/20, AOSL 13/20,
+  AIP 8/20. Of these, 42 were judged sound medium/high-impact changes.
+- Top-20 agreement: subject 68/100, direction 48/100, relative magnitude 24/100,
+  displayed impact 62/100. Judges assigned high impact to 15 leading cases; production
+  assigned none. These are descriptive assistant disagreements, not accuracy measures.
+- Judges rated 96 leading comparisons sound, three broken (ASPI) and one uncertain
+  (QURE). Controls had four review-worthy cases and eight broken comparisons.
+  Notable lower-ranked controls were ASPI's Noble subscription funding at rank 206
+  and AOSL's completed JV stake sale at rank 238; this sample does not estimate recall.
+- Execution caveat: shared Eval state briefly exposed the ASPI judge to AIP source
+  text after a generic-variable collision. It reported no production-label/score
+  exposure; all judges subsequently used issuer-prefixed state. The incident and
+  each judge's disclosure are retained. Conversational contexts were separate,
+  but execution was not perfectly isolated.
+- Browser verification covered the combined report and all five individual reports,
+  production subject filtering and impact sorting, all 17 judge-filter selections,
+  intersecting/empty states, all 125 nine-category tables, expanded source evidence
+  and valid local report/case links. Desktop and 390px mobile had no page overflow
+  or browser errors. No project tests were rerun for this one-off, code-unchanged audit.
+- No ranking or labels were tuned after judging. One judge per issuer, no repeat
+  judgments and no independent human adjudication: impact calibration, generalization,
+  public novelty, causal ranking uplift and investment performance remain unestablished.
+
+### Implemented evidence-first comparisons and bounded source context
+
+- Added visible inline-XBRL facts with exact Decimal values, source scale/sign,
+  units, entities, dimensions, periods, anchors and paragraph/table references.
+  Preserved original table cells, row indices, spans and header flags without
+  inventing rectangular column relationships. Unsupported numeric transformations
+  and continuations remain explicit extraction diagnostics.
+- Added indexed, scope-gated adjacent/relevant context and unmatched counterpart
+  suggestions. An unmatched suggestion never becomes a verified numeric change.
+  Arithmetic requires facts attached to both exact target paragraphs, compatible
+  periods, identical concepts/entities/units/dimensions and no conflicting values.
+  Quarter/YTD totals and within-filing YoY comparators are not naively subtracted.
+- Real-source smoke checked 897 target spans and 24 attributed calculations in
+  the frozen 125-case sample, plus unchanged hashes for all ten raw filings.
+  Repaired ASPI's restricted-cash and technology-ownership page continuations.
+  An unrelated cash forecast no longer inherits a numerical cash-balance change.
+- Count limits alone failed on two live requests. Deduplicated facts/quotes in the
+  provider representation and bounded supplemental packets to **24,000 UTF-8 bytes**.
+  Whole optional records are omitted with a persisted notice; original targets
+  remain intact. Maximum in the frozen sample: 23,992 bytes. All 125 sample packets
+  required some optional-context omission. Missing context is not evidence of absence.
+- Revised rubric `filing-delta-3` clarifies recurring operating/exposure changes,
+  direction, company-relative magnitude and financing versus capital deployment.
+  The 0.60 reporting floor and strict probability validation are unchanged.
+- Report policy `evidence-review-1` separates supported changes from comparison
+  review, with one total leading-card budget. Supported high/medium groups come
+  first; assessed review may use `min(remaining_budget, max(1, top_n // 4))` slots,
+  then supported low and remaining review/unavailable groups. Filters and sorting
+  are lane-local. Conservative same-event/period grouping retains every member's
+  original passages and independent judgment; broad topic overlap is insufficient.
+
+### Completed production and controlled development ablation
+
+- Final five-company run: **`20260924T042703-f0fdba83b6`**.
+  All **1,147 eligible passages** have strict-valid assessments: ASPI 310, CLMT 223,
+  QURE 180, AOSL 251, AIP 183. Extracted 9,626 numeric source facts and retained
+  125 candidate-level computed changes across the complete run.
+- The recorded production invocation made 1,413 provider calls including invalid
+  responses/retries; wall time was 426.32 seconds. Provider-reported usage is in
+  `production-invocation.json`; no dollar-cost estimate was inferred.
+- Preserved the failed oversized first experiment as `evidence-tuning-v1`.
+  Revised operational inputs/results are under `evidence-tuning-v2`; exact targets,
+  alignments and both rubric snapshots remained unchanged. All three ablations
+  completed all 125 frozen cases.
+- Original top-100 agreement with the frozen assistant labels:
+
+  | Configuration | Subject | Direction | Magnitude | Raw impact | Displayed impact |
+  |---|---:|---:|---:|---:|---:|
+  | Original rubric / adjacent context | 68 | 48 | 24 | 62 | 62 |
+  | Revised rubric only | 72 | 47 | 14 | 62 | 44 |
+  | Enriched evidence only | 68 | 52 | 52 | 62 | 52 |
+  | Revised rubric + evidence | 73 | 47 | 45 | 62 | 37 |
+
+- Evidence helps magnitude interpretation, but the rubric does not improve every
+  dimension and lowers displayed-impact agreement. These are development diagnostics,
+  not human accuracy. Parser repairs and the new full-pool selection are not isolated
+  by this fixed-target ablation. The threshold was not relaxed to inflate agreement.
+
+### Evaluated two preregistered fresh issuers
+
+- Selected **AEHR and INOD before reading their sources**. Froze code, exact questions,
+  raw sources, complete corpora, targets and alignment. Both configurations completed
+  all **352 eligible comparisons** (AEHR 212, INOD 140): original rubric/adjacent
+  context versus revised rubric/enriched evidence. Observed provider calls were
+  437 and 424 respectively, including strict-validation retries.
+- Separate-kernel Eval child agents judged the blinded union of all selected members:
+  **63 candidates and 228 verified source quotations**, with every required target
+  endpoint cited. Labels were frozen before joining hidden selections and outcomes.
+  This avoids the shared-kernel incident recorded in the earlier five-company audit.
+
+  | Fixed 20-card budget per issuer | Original | Enriched |
+  |---|---:|---:|
+  | Judge-worthwhile cards | 15/40 | 21/40 |
+  | Judge-sound, worthwhile medium/high cards | 11/40 | 15/40 |
+  | Worthwhile issuer/topic groups | 11 | 16 |
+  | Cards containing a judge-broken comparison | 0 | 6 |
+
+- AEHR worthwhile cards improved 7→14; INOD declined 8→7. All six broken comparisons
+  were already `needs_review` and in the review lane; none entered the supported-change
+  lane. Seven of ten review-lane cards were judged worthwhile as disclosed matters,
+  not necessarily as valid changes. No multi-member groups occurred in this selected
+  fresh sample, so it does not demonstrate automatic deduplication gains.
+- One assistant judge per issuer, no repeats or human adjudication. Selected-set
+  coverage is not population recall. This combined configuration comparison does not
+  identify separate causal contributions from the rubric, evidence and selection policy.
+
+### Verified persistence, CLI and report interactions
+
+- **234 tests passed**; Ruff lint and formatting checks passed; wheel and sdist built.
+- A persisted-evidence replay exposed quote-reference IDs depending on dictionary
+  side order. Canonicalized previous/current traversal and retained a regression.
+  The post-freeze operational fix and old/new source hashes are explicitly recorded;
+  it did not change any frozen request, source, rubric, threshold or judgment.
+- Replayed **1,851 judgments** with the provider forbidden: 1,147 persisted five-company
+  records and 352 records for each fresh variant. Zero calls; identical original cache
+  keys and signals. All **2,331 pre-existing evaluation payloads and 15 run payloads**
+  retained their hashes. The original audit still verifies 31 frozen inputs, 125 labels
+  and 474 quotations.
+- `radar report 20260924T042703-f0fdba83b6` with SEC and TypeSafe credential environment
+  values explicitly empty produced byte-identical HTML.
+- Browser checked 100 combined leading cards, all five 20-card individual reports,
+  the 40-card fresh report, both source-linked audit reviews, lane isolation,
+  filtering/empty states, sorting and expanded numeric evidence. Group-member expansion
+  used an explicitly synthetic duplicate of one recorded assessment, not a claimed
+  production discovery.
+- Fixed mobile overflow from long audit candidate IDs by wrapping them. Desktop and
+  390px mobile checks, including expanded source/assessment panels, had no page overflow
+  or recorded browser errors. Temporary UI fixtures are excluded from deliverables.
+
+### Final delivery checkpoint
+
+- Sealed and verified **89 delivery artifacts**, including nine HTML reports, in
+  `data/processed/evidence-tuning-v2/delivery-manifest.json`. This records the completed
+  implementation/review snapshot; the pre-publication working log is preserved separately
+  under `data/processed/evidence-tuning-v2/publication/working-notes.before`.
+- Removed the temporary grouped-evidence and offline-rendering smoke HTML files,
+  closed browser tabs and stopped the local report preview. Reproducible audit scripts,
+  original inputs, provider results and verification records remain available locally.
+- Source, regression tests, example configuration and documentation are repository
+  artifacts. Credentials, raw filings, databases, generated reports, audit data, virtual
+  environments and build outputs remain excluded from Git. A fresh clone therefore
+  does not include the locally evaluated reports or filing cache.
+
 ## Local artifacts and operational notes
 
 These `data/` artifacts are ignored by Git and are not included in a fresh clone:
 
+- General business-impact NPK report: `data/reports/business-impact-npk.html`.
+  Persisted run: `20260924T024532-36a42abd00`; all 62 eligible passages included.
+- Five-company production report: `data/reports/business-impact-five-company.html`.
+- Five-company judge review: `data/reports/five-company-impact-judge-review.html`.
+- Five-company audit inputs/results: `data/processed/five-company-impact-review-v1/`.
+- Tuned five-company report: `data/reports/evidence-tuned-five-company.html`.
+- Controlled ablation review: `data/reports/evidence-tuning-ablation-review.html`.
+- Fresh source-judge review: `data/reports/evidence-tuning-fresh-review.html`.
+- Fresh production report: `data/reports/evidence-tuned-fresh-issuers.html`.
+- Tuning inputs, execution accounting, frozen labels and verification:
+  `data/processed/evidence-tuning-v2/`.
 - Latest four-company report: `data/reports/20260921T033232-0ee464b545.html`.
 - Four-company source review: `data/processed/four-company-disclosure-review.json`.
 - Blinded evaluation: `data/processed/four-company-assistant-eval-v1/results.json`.
@@ -422,8 +673,9 @@ cache. `radar report RUN_ID` uses persisted judgments without SEC/model/provider
 
 ## Remaining limitations and unfinished acceptance work
 
-- Live/research comparisons now cover RELL, NPK, PKE, BFLY, CPSH, ASTE, GRC and HURC.
-  Wider issuer/form/layout coverage and independent ranking-quality evaluation remain open.
+- Live/research comparisons now cover RELL, NPK, PKE, BFLY, CPSH, ASTE, GRC, HURC,
+  ASPI, CLMT, QURE, AOSL, AIP, AEHR and INOD. Wider coverage and human ranking-quality
+  evaluation remain open.
 - A complete versioned historical SEC HTML-pair fixture remains outstanding. The real
   tax-note excerpt regression does not cover full historical ingestion.
 - No independent human-labeled ranking corpus exists yet. The provisional blinded
@@ -434,3 +686,7 @@ cache. `radar report RUN_ID` uses persisted judgments without SEC/model/provider
 - The live recomputation emitted BeautifulSoup's `XMLParsedAsHTMLWarning` while parsing
   the cached SEC document. The run completed; the warning was not suppressed.
 - Economic ranking scores are not calibrated probabilities or investment advice.
+- The general categorization/impact rubric now has source-only assistant review, not
+  a human-adjudicated quality benchmark. Impact and comparison-reliability judgments
+  remain uncalibrated; bounded retrieved context and structured facts cannot always
+  establish company-relative magnitude. Fresh improvements were issuer-dependent.

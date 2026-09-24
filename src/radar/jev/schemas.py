@@ -3,7 +3,8 @@
 import math
 from typing import Any
 
-from radar.models import JevSemanticSignals
+from radar.jev.questions import BUSINESS_QUESTIONS
+from radar.models import BusinessAssessment, CategoricalAssessment, JevSemanticSignals
 
 
 class JevResponseError(ValueError):
@@ -13,7 +14,7 @@ class JevResponseError(ValueError):
 def _probability(value: Any, location: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise JevResponseError(f"{location}: expected a numeric probability")
-    if not math.isfinite(value) or not 0 <= value <= 1:
+    if not 0 <= value <= 1 or not math.isfinite(value):
         raise JevResponseError(f"{location}: probability must be finite and between 0 and 1")
     return float(value)
 
@@ -27,14 +28,29 @@ def normalize_response(
     answers = raw.get("answers")
     if not isinstance(answers, dict):
         raise JevResponseError("Response is missing its answers mapping")
+    if set(answers) != set(questions):
+        raise JevResponseError("Answers must cover exactly the requested questions")
+    if not set(BUSINESS_QUESTIONS).issubset(questions):
+        raise JevResponseError("Questions must include every business assessment dimension")
     signals: dict[str, Any] = {"question_schema_version": schema_version}
+    assessment: dict[str, CategoricalAssessment] = {}
     for name, question in questions.items():
         answer = answers.get(name)
         if not isinstance(answer, dict) or answer.get("type") != question["type"]:
             raise JevResponseError(f"{name}: missing answer or incorrect answer type")
-        if question["type"] == "noul":
+        if name not in BUSINESS_QUESTIONS:
+            if question["type"] != "noul" or name not in {
+                "same_underlying_meaning",
+                "introduces_new_substantive_information",
+                "plausibly_economically_consequential",
+                "mostly_boilerplate_or_rephrasing",
+                "substantive_disclosure",
+            }:
+                raise JevResponseError(f"{name}: unsupported question")
             signals[name] = _probability(answer.get("noul"), f"{name}.noul")
             continue
+        if question["type"] != "choice":
+            raise JevResponseError(f"{name}: business assessments require choice answers")
         probabilities = answer.get("probabilities")
         if not isinstance(probabilities, dict) or set(probabilities) != set(question["criteria"]):
             raise JevResponseError(f"{name}: probabilities must cover exactly the requested labels")
@@ -52,8 +68,9 @@ def normalize_response(
         if values[choice] + 1e-9 < max(values.values()):
             raise JevResponseError(f"{name}: selected choice is inconsistent with probabilities")
         _probability(answer.get("confidence"), f"{name}.confidence")
-        signals[name] = choice
-        signals[name.removesuffix("_direction") + "_probabilities"] = {
-            label: value / total for label, value in values.items()
-        }
+        assessment[name] = CategoricalAssessment(
+            choice=choice,
+            probabilities={label: value / total for label, value in values.items()},
+        )
+    signals["assessment"] = BusinessAssessment.model_validate(assessment)
     return JevSemanticSignals.model_validate(signals)

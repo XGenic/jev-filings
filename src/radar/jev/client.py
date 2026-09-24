@@ -8,9 +8,17 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from radar.db import Database, canonical_json, content_key
+from radar.evidence_packet import semantic_evidence
 from radar.jev import questions as question_definitions
 from radar.jev.schemas import JevResponseError, normalize_response
-from radar.models import AlignedPair, ComparableFilingPair, Filing, JevEvaluation
+from radar.models import (
+    AlignedPair,
+    ComparableFilingPair,
+    ComparisonEvidence,
+    Filing,
+    FilingParagraph,
+    JevEvaluation,
+)
 
 
 class JevUnavailableError(RuntimeError):
@@ -55,6 +63,36 @@ def _filing_context(filing: Filing) -> dict[str, Any]:
     return filing.model_dump(mode="json", exclude={"local_path", "primary_document"})
 
 
+def _comparison_evidence_state(
+    evidence: ComparisonEvidence | None, pair: AlignedPair, comparison: ComparableFilingPair
+) -> dict[str, Any] | None:
+    if evidence is None:
+        return None
+    if not isinstance(evidence, ComparisonEvidence):
+        raise ValueError("comparison_evidence must be ComparisonEvidence")
+    sides = {"previous", "current"}
+    for name in ("changed_spans", "context_facts", "tables", "counterparts"):
+        sources = getattr(evidence, name)
+        if set(sources) - sides:
+            raise ValueError(f"comparison_evidence.{name} contains an unknown filing side")
+        if name != "changed_spans":
+            for side, records in sources.items():
+                accession = getattr(comparison, side).accession
+                if any(record.filing_accession != accession for record in records):
+                    raise ValueError(
+                        f"comparison_evidence.{name}.{side} contains a wrong-side accession"
+                    )
+    if pair.relation != "matched" and evidence.changes:
+        raise ValueError("Unmatched comparison_evidence cannot establish numeric changes")
+    for change in evidence.changes:
+        if (
+            change.previous.filing_accession != comparison.previous.accession
+            or change.current.filing_accession != comparison.current.accession
+        ):
+            raise ValueError("comparison_evidence change contains a wrong-side accession")
+    return semantic_evidence(evidence)
+
+
 class JevEvaluator:
     def __init__(self, db: Database, model: str | None = None, provider: JevProvider | None = None):
         self.db = db
@@ -68,13 +106,43 @@ class JevEvaluator:
             )
         self.provider_identity = identity
 
-    def evaluate(self, pair: AlignedPair, comparison: ComparableFilingPair) -> JevEvaluation:
+    def evaluate(
+        self,
+        pair: AlignedPair,
+        comparison: ComparableFilingPair,
+        *,
+        source_context: dict[str, list[FilingParagraph]] | None = None,
+        comparison_evidence: ComparisonEvidence | None = None,
+    ) -> JevEvaluation:
+        context = {} if source_context is None else source_context
+        if not isinstance(context, dict) or set(context) - {"previous", "current"}:
+            raise ValueError("source_context allows only previous and current filing sides")
+        context_state: dict[str, list[dict[str, Any]]] = {}
+        for side, paragraphs in context.items():
+            if not isinstance(paragraphs, list) or any(
+                not isinstance(paragraph, FilingParagraph) for paragraph in paragraphs
+            ):
+                raise ValueError(f"source_context.{side} must be a list of FilingParagraph")
+            accession = getattr(comparison, side).accession
+            if any(paragraph.filing_accession != accession for paragraph in paragraphs):
+                raise ValueError(f"source_context.{side} contains a wrong-side filing accession")
+            context_state[side] = [
+                paragraph.model_dump(mode="json", exclude={"normalized_text"})
+                for paragraph in paragraphs
+            ]
+        for target, filing in ((pair.old, comparison.previous), (pair.new, comparison.current)):
+            if target is not None and target.filing_accession != filing.accession:
+                raise ValueError("Target paragraph contains a wrong-side filing accession")
         schema_version = question_definitions.QUESTION_SCHEMA_VERSION
         questions = question_definitions.questions_for(pair.relation)
         state = {
             "question_schema_version": schema_version,
             "requested_model": self.model,
             "relation": pair.relation,
+            "source_context": context_state,
+            "comparison_evidence": _comparison_evidence_state(
+                comparison_evidence, pair, comparison
+            ),
             "comparison": {
                 "strategy": comparison.strategy,
                 "previous": _filing_context(comparison.previous),

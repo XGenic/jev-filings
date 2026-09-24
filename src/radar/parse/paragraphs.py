@@ -4,7 +4,7 @@ from hashlib import sha256
 
 from radar.models import Filing, FilingParagraph
 
-from .html import clean_html, text_blocks
+from .html import narrative_html, text_blocks
 from .sections import SectionTracker, normalize_text
 
 
@@ -13,7 +13,7 @@ def _extract(html: str | bytes, accession: str, min_chars: int) -> list[FilingPa
         raise ValueError("min_chars must be at least 1")
     sections = SectionTracker()
     result: list[FilingParagraph] = []
-    for block in text_blocks(clean_html(html)):
+    for block in text_blocks(narrative_html(html)):
         if sections.consume_heading(block):
             continue
         normalized = normalize_text(block.text)

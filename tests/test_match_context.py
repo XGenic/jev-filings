@@ -225,3 +225,25 @@ def test_loss_contingency_recognition_is_not_a_reporting_flow():
     )
     assert obligation.reporting_scope == "unknown"
     assert results.reporting_scope == "quarter"
+
+
+def test_plural_quarters_do_not_match_year_to_date_tax_results():
+    # NPK's actual quarterly wording was unrecognized, admitting a YTD counterpart.
+    old = context(
+        "The provision for income taxes decreased from $2,198,000 to $1,987,000, "
+        "which resulted in an effective income tax rate of 23% and 22% for the quarters "
+        "ended April 5, 2026 and March 30, 2025, respectively."
+    )
+    current_quarter = context(
+        "The provision for income taxes increased from $1,461,000 to $4,353,000, "
+        "which resulted in an effective income tax rate of 22% for both quarters "
+        "ended July 5, 2026 and June 29, 2025."
+    )
+    current_ytd = context(
+        "The provision for income taxes increased from $3,659,000 to $6,340,000, "
+        "which resulted in an effective income tax rate of 22% for both six month "
+        "periods ended July 5, 2026 and June 29, 2025."
+    )
+    assert old.reporting_scope == current_quarter.reporting_scope == "quarter"
+    assert scopes_compatible(old, current_quarter)
+    assert not scopes_compatible(old, current_ytd)

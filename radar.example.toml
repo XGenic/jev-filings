@@ -13,15 +13,19 @@ alignment_ambiguity_margin = 0.04
 cosmetic_threshold = 0.985
 jev_enabled = true
 jev_concurrency = 4
+# Controls filter this included subset only. Increase to 500 for a full small-company review.
 top_n = 20
 
-# Heuristic contributions, NOT a calibrated probability.
-# radar report RUN_ID --config radar.example.toml reranks cached signals.
+# Heuristic tiebreaker contributions within new business-impact/reliability bands.
+# Historical results still use the original weighted-score ranking. Not a probability.
+# radar report RUN_ID rerenders saved judgments; it cannot upgrade old assessments.
+# New rubric evaluations require radar analyze (and may make uncached Jev requests).
 [weights]
 embedding_drift = 0.25
 semantic_drift = 0.25
 substantive_information = 0.20
 economic_relevance = 0.20
 non_boilerplate = 0.10
+# Used only by historical risk-domain signals, not the new business categories.
 domain_boost = 0.05
 section_boost = 0.03
