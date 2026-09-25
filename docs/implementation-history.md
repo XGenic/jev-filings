@@ -1,4 +1,20 @@
-# SEC Filing Delta Radar — Codex Handoff
+# SEC Filing Delta Radar — Implementation and Design History
+
+**Current status — 2026-09-24:** Development has stopped at a completed technical
+prototype. Its incremental research value remains unvalidated. The
+[README](../README.md) is the public entry point and retrospective; the
+[working notes](working-notes.md) preserve the development log and closure decision.
+
+This document preserves the earlier design, implementation checkpoints, experiment
+results and limitations. Historical goals, plans, instructions and unfinished work
+below are not an active roadmap or commitments. Earlier verification statements
+describe their recorded checkpoints, not new verification during repository cleanup.
+Paths and commands in the preserved history are relative to the repository root.
+Inventories of `data/`, reports, databases and audit inputs describe local-only,
+ignored artifacts, not files supplied by a public clone. Credentials, environments
+and build outputs are likewise not public deliverables.
+
+## Preserved design and implementation record
 
 **Status:** evidence-first business assessments and two-lane reports implemented; five-company production and two fresh-issuer comparisons completed. Source-only assistant evaluation is mixed, not human-calibrated; full historical ingestion fixtures remain open (see §§39–40).
 **Primary goal:** build a local tool that detects *meaningful disclosure changes* between comparable SEC 10-K/10-Q filings, uses TypeSafe Jev as a high-throughput semantic judgment layer, and produces a compact HTML report for human review.

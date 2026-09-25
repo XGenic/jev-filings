@@ -1,8 +1,23 @@
 # Working notes — SEC Filing Delta Radar
 
+**Current status — 2026-09-24:** Development has stopped at a completed technical
+prototype. Its incremental research value remains unvalidated. Start with the
+[README](../README.md) for the public entry point and retrospective, or see the
+[implementation and design history](implementation-history.md) for the archived design.
+
+The entries and log-maintenance instructions below are historical. Earlier plans
+and unfinished acceptance work are not an active roadmap or commitments; earlier
+verification statements are not new cleanup verification. Paths and commands remain
+relative to the repository root. Local artifact inventories, including `data/`,
+generated reports, databases and audit inputs, are preserved for provenance but
+are ignored and absent from a public clone. Credentials, environments and build
+outputs are not public deliverables.
+
+## Preserved working log
+
 A running log of completed work, decisions, verification, and remaining limitations.
 For the full specification and implementation details, see
-[SEC_Filing_Delta_Radar_Codex_Handoff.md](SEC_Filing_Delta_Radar_Codex_Handoff.md).
+[implementation and design history](implementation-history.md).
 
 ## Maintaining this log
 
@@ -690,3 +705,54 @@ cache. `radar report RUN_ID` uses persisted judgments without SEC/model/provider
   a human-adjudicated quality benchmark. Impact and comparison-reliability judgments
   remain uncalibrated; bounded retrieved context and structured facts cannot always
   establish company-relative magnitude. Fresh improvements were issuer-dependent.
+
+## 2026-09-24 — Project closure and public-artifact preparation
+
+- The user chose to stop development after the completed technical prototype, with
+  incremental research value still unvalidated. The preserved results and limitations
+  above remain unchanged; unfinished work is historical, not a commitment to continue.
+- The user requested repository cleanup and a README retrospective as the public
+  entry point. The former agent handoff and this log have been archived under `docs/`
+  as [implementation history](implementation-history.md) and working notes. Local-only
+  artifact inventories are retained; their contents are not added to the public artifact.
+- No final new benchmark was run for this closure. The decision does not establish
+  that Jev has zero value; it leaves incremental value unresolved rather than proving
+  either benefit or absence of benefit.
+- Repository-preparation checks are recorded below. No new live SEC/Jev evaluation
+  or browser verification was performed; historical research findings remain frozen.
+- No new commit, push, public publication, or repository-visibility change is claimed.
+
+### Public-artifact cleanup and verification
+
+- Added the root README retrospective, stopped-development status, installation and
+  usage instructions, reproducibility limits, and links to the archived history.
+  The missing XBRL-only ranking comparison is explicit; no result is invented for it.
+- Added the user-selected MIT license and package README/license/repository metadata.
+  Production source and regression tests were left unchanged.
+- Hardened ignore rules for local configuration, reports, databases, environments
+  and build outputs. Restricted the source distribution to explicit public paths.
+  Existing local credentials, raw filings, reports, databases and audit data were preserved.
+- Added a Python 3.12 CI workflow with commit-pinned actions and read-only repository
+  permissions. Its YAML and commands were checked locally; no GitHub Actions run
+  or public publication is claimed.
+- A read-only safety audit covered 61 initially tracked paths, all four reachable
+  commits and 96 unique historical blobs. No current local credential-value matches,
+  common token/private-key patterns, or tracked private artifacts were found.
+  This bounded scan does not rule out unknown, rotated or encoded secrets, unreachable
+  history or remote-only refs. Existing author/committer email metadata remains unchanged.
+- Exported the 64-file public working tree to a temporary directory without `.env`
+  or research data. Frozen installation with the `jev` extra succeeded; **234 tests
+  passed**, Ruff lint passed, and all 46 Python files passed the formatting check.
+  Tests used fixture providers rather than paid or live SEC requests.
+- Built wheel and source distributions both in the clean copy and beside the
+  existing private local data. The inspected archives contained 39 and 65 files,
+  respectively, with MIT metadata, README and required report templates, and no
+  private artifacts or current credential-value matches.
+- Installed the wheel into a separate environment. All seven CLI help surfaces,
+  cache-only fetch, lexical/provider-free analysis of a synthetic filing pair and
+  credential-free report rerender succeeded. The rerender was byte-identical.
+- Verified 18 local documentation links, 16 ignore-rule cases, and frozen dependency
+  metadata. These checks establish publication/software behavior, not research quality.
+- Removed the temporary clean-copy environment, wheel-install environment, synthetic
+  CLI smoke script and inspected build archives after verification. No local research
+  data or credentials were removed, and production source/test fingerprints were unchanged.

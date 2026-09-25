@@ -1,11 +1,34 @@
+# Local credentials and configuration
 .env
 .env.*
 !.env.example
+radar.toml
+
+# Python environments and tooling
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
 *.egg-info/
-data/
+build/
 dist/
+
+# Private research inputs, generated reports and databases
+data/
+reports/
+*.sqlite*
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.log
+
+# Editor and operating-system files
+.DS_Store
+*~

@@ -12,6 +12,7 @@ alignment_top_k = 3
 alignment_ambiguity_margin = 0.04
 cosmetic_threshold = 0.985
 jev_enabled = true
+# Enabled analysis can make paid TypeSafe calls. Use --no-jev for provider-free runs.
 jev_concurrency = 4
 # Controls filter this included subset only. Increase to 500 for a full small-company review.
 top_n = 20

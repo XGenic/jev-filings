@@ -2,6 +2,10 @@
 name = "filing-delta-radar"
 version = "0.1.0"
 description = "Local, auditable semantic disclosure comparisons for SEC filings"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = ["Development Status :: 7 - Inactive"]
 requires-python = ">=3.12"
 dependencies = [
   "beautifulsoup4>=4.12",
@@ -21,6 +25,9 @@ dependencies = [
 embeddings = ["sentence-transformers>=3", "torch>=2.4"]
 jev = ["typesafe-sdk>=0.1"]
 
+[project.urls]
+Repository = "https://github.com/XGenic/jev-filings"
+
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.9"]
 
@@ -30,6 +37,21 @@ radar = "radar.cli:app"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/docs",
+  "/.github",
+  "/.env.example",
+  "/.gitignore",
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/radar.example.toml",
+  "/uv.lock",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/radar"]
